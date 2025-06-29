@@ -1,0 +1,41 @@
+# .gitignore for ASP.NET Core / C# project
+
+# Build results
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Visual Studio Code
+.vscode/
+.vs/
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+
+# Others
+*.swp
+*.tmp
+
+# Publish output
+publish/
+
+# HTTP request files
+*.http
+
+# Ignore essayfiles if needed (uncomment if you want to ignore uploaded files)
+essayfiles/
+
