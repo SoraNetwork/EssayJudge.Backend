@@ -39,4 +39,4 @@ publish/
 # Ignore essayfiles if needed (uncomment if you want to ignore uploaded files)
 essayfiles/
 
-appsettings.json
+app*.json
