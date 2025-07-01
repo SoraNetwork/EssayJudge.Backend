@@ -118,17 +118,41 @@ try
     app.UseAuthentication();
     app.UseAuthorization();
 
+    // 确保 essayfiles 目录存在
+    var essayFilesPath = Path.Combine(app.Environment.ContentRootPath, "essayfiles");
+    if (!Directory.Exists(essayFilesPath))
+    {
+        Directory.CreateDirectory(essayFilesPath);
+    }
+
     // 配置 essayfiles 目录为静态文件目录
     app.UseStaticFiles(new StaticFileOptions
     {
-        FileProvider = new PhysicalFileProvider(
-            Path.Combine(app.Environment.ContentRootPath, "essayfiles")),
+        FileProvider = new PhysicalFileProvider(essayFilesPath),
         RequestPath = "/essayfiles"
     });
 
     app.UseHttpsRedirection();
 
     app.MapControllers();
+
+    // 在应用程序启动时应用数据库迁移
+    using (var scope = app.Services.CreateScope())
+    {
+        var services = scope.ServiceProvider;
+        try
+        {
+            var context = services.GetRequiredService<EssayContext>();
+            context.Database.EnsureCreated(); // 确保数据库已创建
+            context.Database.Migrate(); // 应用所有待处理的迁移
+            Log.Information("Database migration completed successfully.");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "An error occurred while migrating the database.");
+            // 根据需要，可以选择在这里停止应用程序或继续运行
+        }
+    }
 
     app.Run();
 }
@@ -141,3 +165,4 @@ finally
     Log.Information("Shut down complete");
     Log.CloseAndFlush();
 }
+

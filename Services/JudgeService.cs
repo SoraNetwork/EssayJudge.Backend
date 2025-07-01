@@ -253,6 +253,77 @@ namespace SoraEssayJudge.Services
             reportBuilder.AppendLine("3. 提出具体的、有针对性的修改建议。");
             reportBuilder.AppendLine("4. 报告应语言流畅、专业、富有启发性。");
             reportBuilder.AppendLine("5. 最重要：请勿输出其他的提示内容，仅包含一份完整报告。");
+
+            reportBuilder.AppendLine("\n不要完全按照模板，需要个性化评测报告 --- 报告格式要求 --- "); 
+            reportBuilder.AppendLine("# 作文批改分析报告");
+            reportBuilder.AppendLine("| 项目 | 内容 |");
+            reportBuilder.AppendLine("| :--- | :--- |");
+            reportBuilder.AppendLine("| **作文题目** | [在此处填写完整的作文题目] |");
+            reportBuilder.AppendLine($"| **预估分数** | **{submission.FinalScore:F0} / {assignment.TotalScore} 分** |"); // Use actual score and total score
+            reportBuilder.AppendLine("## 综合评价");
+            reportBuilder.AppendLine($"*   **总分：** **{submission.FinalScore:F0} / {assignment.TotalScore} 分**"); // Use actual score and total score
+            reportBuilder.AppendLine("*   **等级划分：** `[一类卷 / 二类卷上 / 二类卷下 / 三类卷等]`");
+            reportBuilder.AppendLine("*   **一句话总评：** `[例如：立意精准，论证有力，但语言细节有待打磨。]` 或 `[例如：结构完整，但思想深度不足，论据较为陈旧。]`");
+            reportBuilder.AppendLine("---");
+            reportBuilder.AppendLine("## 三、多维度分析与诊断");
+            reportBuilder.AppendLine("<!-- ");
+            reportBuilder.AppendLine("    以下四个维度是高考作文评分的核心。");
+            reportBuilder.AppendLine("    - “亮点”用于肯定学生的优点，建立信心。");
+            reportBuilder.AppendLine("    - “问题”用于指出不足，明确方向。");
+            reportBuilder.AppendLine("    - “具体示例”是关键，务必引用原文，使分析有据可依。");
+            reportBuilder.AppendLine("-->");
+            reportBuilder.AppendLine("### 1. 内容与立意 (发展等级 - 20分)");
+            reportBuilder.AppendLine("*   **本项得分：** `[得分] / 20 分`");
+            reportBuilder.AppendLine("*   **亮点：**");
+            reportBuilder.AppendLine("    *   `[例如：审题准确，能够紧扣材料核心概念展开论述。]`");
+            reportBuilder.AppendLine("    *   `[例如：立意新颖，能够从“……”的角度切入，体现了较强的思辨能力。]`");
+            reportBuilder.AppendLine("*   **问题：**");
+            reportBuilder.AppendLine("    *   `[例如：立意略显陈旧，未能跳出常规思维框架。]`");
+            reportBuilder.AppendLine("    *   `[例如：思想内容稍显单薄，对问题的探讨停留在表面，缺乏深度。]`");
+            reportBuilder.AppendLine("*   **具体示例：**");
+            reportBuilder.AppendLine("    *   **优**：你在第三段写道：“……”，这个观点将个人选择与时代背景结合，体现了深刻的洞察力。");
+            reportBuilder.AppendLine("    *   **待改进**：文中提到的“只要努力就能成功”这一观点，虽然积极，但略显简化。可以进一步探讨“努力”与“方法”、“机遇”之间的复杂关系，使论证更全面。");
+            reportBuilder.AppendLine("### 2. 结构与逻辑 (基础等级 - 20分)");
+            reportBuilder.AppendLine("*   **本项得分：** `[得分] / 20 分`");
+            reportBuilder.AppendLine("*   **亮点：**");
+            reportBuilder.AppendLine("    *   `[例如：文章结构清晰，总分总结构完整，段落划分合理。]`");
+            reportBuilder.AppendLine("    *   `[例如：论证逻辑链条清晰，分论点之间层层递进，说服力强。]`");
+            reportBuilder.AppendLine("*   **问题：**");
+            reportBuilder.AppendLine("    *   `[例如：段落之间缺乏有效的过渡，显得有些跳跃。]`");
+            reportBuilder.AppendLine("    *   `[例如：部分论据与分论点之间的关联性不强，存在“论据倒挂”现象。]`");
+            reportBuilder.AppendLine("*   **具体示例：**");
+            reportBuilder.AppendLine("    *   **优**：文章开头通过……引出中心论点，结尾……进行总结升华，首尾呼应，结构严谨。");
+            reportBuilder.AppendLine("    *   **待改进**：第二段和第三段都是在罗列事例，但没有清晰的分论点统领，建议为每个事例段提炼一个明确的分论点句，置于段首。");
+            reportBuilder.AppendLine("### 3. 语言与文采 (基础等级 - 20分)");
+            reportBuilder.AppendLine("*   **本项得分：** `[得分] / 20 分`");
+            reportBuilder.AppendLine("*   **亮点：**");
+            reportBuilder.AppendLine("    *   `[例如：词汇丰富，用词精准，能运用多种修辞手法增强表达效果。]`");
+            reportBuilder.AppendLine("    *   `[例如：句式灵活多变，长短句结合得当，文笔流畅自然。]`");
+            reportBuilder.AppendLine("*   **问题：**");
+            reportBuilder.AppendLine("    *   `[例如：语言表达较为平实，缺乏文采和感染力。]`");
+            reportBuilder.AppendLine("    *   `[例如：存在语病或用词不当之处，影响了阅读的流畅性。]`");
+            reportBuilder.AppendLine("*   **具体示例：**");
+            reportBuilder.AppendLine("    *   **优**：句子“……”中，使用了比喻的修辞，生动形象地写出了……。");
+            reportBuilder.AppendLine("    *   **待改进**：原文中“我们应该变得更好”这类表述比较口语化，可以修改为“吾辈当于时代洪流中，淬炼自我，砥砺前行”等书面语，提升语言格调。");
+            reportBuilder.AppendLine("### 4. 规范与书写 (卷面分)");
+            reportBuilder.AppendLine("*   **本项扣分：** `[0 / 1 / 2] 分`");
+            reportBuilder.AppendLine("*   **评价：**");
+            reportBuilder.AppendLine("    *   `[例如：卷面整洁，字迹清晰，标点符号使用规范，无错别字。]`");
+            reportBuilder.AppendLine("    *   `[例如：存在少量涂改，个别字迹潦草，需注意卷面整洁度。]`");
+            reportBuilder.AppendLine("    *   `[例如：标点符号使用不规范，如“一逗到底”，需要加强练习。]`");
+            reportBuilder.AppendLine("---");
+            reportBuilder.AppendLine("## 四、核心问题与提升建议");
+            reportBuilder.AppendLine("1.  **当前首要问题诊断：**");
+            reportBuilder.AppendLine("    *   `[用一两句话概括当前最需要解决的核心问题，例如：文章最大的短板在于论证的深度不足，未能深入挖掘材料内涵。]`");
+            reportBuilder.AppendLine("2.  **具体提升建议：**");
+            reportBuilder.AppendLine("    *   **审题立意方面：** 建议采用“多向辐射法”进行审题，从不同角度（个人、社会、历史、未来）思考材料，寻找最佳切入点，避免立意大众化。");
+            reportBuilder.AppendLine("    *   **结构论证方面：** 练习撰写作文提纲，尤其要明确分论点之间的逻辑关系（并列、递进、对比）。每个论据后，增加1-2句分析，阐明论据如何支撑你的观点。");
+            reportBuilder.AppendLine("    *   **语言表达方面：** 准备一个“高级词汇/精妙句式”积累本，日常阅读时注意摘抄和模仿。写作时，有意识地替换平淡的词语，尝试运用排比、对偶等句式增强气势。");
+            reportBuilder.AppendLine("    *   **素材积累方面：** 建议多关注《人民日报》评论、时事热点深度解析等，积累新鲜、有深度的论据，替代老旧的“司马迁、屈原、爱迪生”等通用素材。");
+            reportBuilder.AppendLine("---");
+            reportBuilder.AppendLine("## 五、总结");
+            reportBuilder.AppendLine("[一个比较完善的总结。可以结合AI模型给出的评语 深度概括。]");
+            reportBuilder.AppendLine("\n--- 报告内容结束 ---"); // Add an end marker
             return reportBuilder.ToString();
         }
     }
