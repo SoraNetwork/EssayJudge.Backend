@@ -89,7 +89,7 @@ namespace SoraEssayJudge.Services
                     }
                     
                     _logger.LogInformation("Processing image for submission ID: {SubmissionId}, path: {ImagePath}", submissionId, imagePath);
-                    string parsedText = await processImageService.ProcessImageAsync(imagePath!, submission.ColumnCount);
+                    string parsedText = await processImageService.ProcessImageAsync(imagePath!, submission.ColumnCount, Guid.NewGuid());
                     submission.ParsedText = parsedText;
                     // 自动提取第一行为 Title
                     if (!string.IsNullOrWhiteSpace(parsedText))

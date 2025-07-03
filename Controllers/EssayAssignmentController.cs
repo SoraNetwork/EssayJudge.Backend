@@ -61,7 +61,7 @@ namespace SoraEssayJudge.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Post([FromForm] string grade, [FromForm] int totalScore, [FromForm] int baseScore, [FromForm] string? titleContext, [FromForm] string? scoringCriteria)
+        public async Task<IActionResult> Post([FromForm] string grade, [FromForm] int totalScore, [FromForm] int baseScore,[FromForm] string? Description, [FromForm] string? titleContext, [FromForm] string? scoringCriteria)
         {
             _logger.LogInformation("Creating a new essay assignment with Grade: {Grade}, TotalScore: {TotalScore}", grade, totalScore);
             var assignment = new EssayAssignment
@@ -70,6 +70,7 @@ namespace SoraEssayJudge.Controllers
                 Grade = grade,
                 TotalScore = totalScore,
                 BaseScore = baseScore,
+                Description = Description,
                 TitleContext = titleContext,
                 ScoringCriteria = scoringCriteria,
                 CreatedAt = DateTime.UtcNow

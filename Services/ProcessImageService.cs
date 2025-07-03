@@ -18,7 +18,7 @@ namespace SoraEssayJudge.Services
             _openAIService = openAIService;
         }
 
-        public async Task<string> ProcessImageAsync(string imagePath, int columnCount)
+        public async Task<string> ProcessImageAsync(string imagePath, int columnCount, Guid id)
         {
             var columnTexts = new List<string>();
             using (Image image = Image.Load(imagePath))
@@ -29,7 +29,7 @@ namespace SoraEssayJudge.Services
                     var rect = new Rectangle(i * columnWidth, 0, columnWidth, image.Height);
                     using (Image columnImage = image.Clone(ctx => ctx.Crop(rect)))
                     {
-                        string tempPath = Path.Combine(Path.GetTempPath(), $"column_{i}.png");
+                        string tempPath = Path.Combine(Path.GetTempPath(), $"{id}_column_{i}.png");
                         columnImage.Save(tempPath);
 
                         string result = await _recognizeHandwritingService.RecognizeAsync(tempPath);
