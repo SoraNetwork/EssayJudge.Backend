@@ -40,11 +40,13 @@ try
                   .AllowAnyMethod();
         });
     });
-
-    builder.Services.AddSingleton<OpenAIService>();
-    builder.Services.AddSingleton<RecognizeHandwritingService>();
-    builder.Services.AddSingleton<ProcessImageService>();
-    builder.Services.AddSingleton<JudgeService>();
+    
+    builder.Services.AddScoped<ApiKeyService>();
+    builder.Services.AddScoped<OpenAIService>();
+    builder.Services.AddScoped<RecognizeHandwritingService>();
+    builder.Services.AddScoped<ProcessImageService>();
+    builder.Services.AddScoped<JudgeService>();
+    
 
     builder.Services.AddControllers().AddJsonOptions(options =>
         {

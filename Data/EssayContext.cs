@@ -15,5 +15,6 @@ namespace SoraEssayJudge.Data
         public DbSet<AIResult> AIResults { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<Class> Classes { get; set; }
+        public DbSet<ApiKey> ApiKeys {get; set;}
     }
 }

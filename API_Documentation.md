@@ -19,14 +19,14 @@
 
 - **方法**: `POST`
 - **路由**: `/api/Auth/register`
-- **参数** (JSON)：
+- **参数** (FROMDATA)：
   - `username` (必需, `string`): 用户名
   - `password` (必需, `string`): 密码（明文）
   - `name` (可选, `string`): 真实姓名
   - `phoneNumber` (可选, `string`): 手机号
 - **示例**:
   ```bash
-  curl -X POST -H "Content-Type: application/json" -d '{"username":"testuser","password":"123456","name":"张三","phoneNumber":"13800000000"}' http://localhost:5000/api/Auth/register
+  curl -X POST -F "username=testuser" -F "password=123456" -F "name=张三" -F "phoneNumber=13800000000" http://localhost:5000/api/Auth/register
   ```
 
 ### POST /api/Auth/login
@@ -35,7 +35,7 @@
 
 - **方法**: `POST`
 - **路由**: `/api/Auth/login`
-- **参数** (JSON)：
+- **参数** (FORMDATA)：
   - `username` (必需, `string`): 用户名
   - `password` (必需, `string`): 密码（明文）
 - **返回**:
@@ -44,7 +44,7 @@
   - `phoneNumber` (`string`): 手机号
 - **示例**:
   ```bash
-  curl -X POST -H "Content-Type: application/json" -d '{"username":"testuser","password":"123456"}' http://localhost:5000/api/Auth/login
+  curl -X POST -F "username=testuser" -F "password=123456" http://localhost:5000/api/Auth/login
   ```
 
 ---
@@ -73,6 +73,18 @@
   # 按标题“环保”进行模糊查询
   curl -X GET "http://localhost:5000/EssayAssignment?title=环保"
   ```
+- **返回示例**:
+  ```json
+  [
+    {
+      "id": "...",
+      "grade": "高二",
+      "totalScore": 60,
+      "titleContext": "论科技与人文",
+      "createdAt": "2023-10-27T10:00:00Z"
+    }
+  ]
+  ```
 
 ### POST /EssayAssignment
 
@@ -89,6 +101,17 @@
 - **示例**:
   ```bash
   curl -X POST -F "grade=高三" -F "totalScore=60" -F "baseScore=42" -F "titleContext=论科技与人文" http://localhost:5000/EssayAssignment
+  ```
+- **返回示例** (成功时返回创建的作文题目信息):
+  ```json
+  {
+    "id": "...",
+    "grade": "
+    "totalScore": 60,
+    "baseScore": 42,
+    "titleContext": "论科技与人文",
+    "scoringCriteria": ""
+  }
   ```
 
 ---
@@ -114,6 +137,17 @@
   # 查询某班级下所有学生
   curl -X GET "http://localhost:5000/Student?classId=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
   ```
+- **返回示例**:
+  ```json
+  [
+    {
+      "id": "...",
+      "name": "张三",
+      "studentId": "20250001",
+      "classId": "..."
+    }
+  ]
+  ```
 
 ### POST /Student
 
@@ -128,6 +162,15 @@
 - **示例**:
   ```bash
   curl -X POST -F "name=李四" -F "studentId=20250001" -F "classId=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" http://localhost:5000/Student
+  ```
+- **返回示例** (成功时返回创建的学生信息):
+  ```json
+  {
+    "id": "...",
+    "name": "李四",
+    "studentId": "20250001",
+    "classId": "..."
+  }
   ```
 
 ---
@@ -147,6 +190,23 @@
   ```bash
   curl -X GET http://localhost:5000/Class
   ```
+- **返回示例**:
+  ```json
+  [
+    {
+      "id": "...",
+      "name": "高三1班",
+      "createdAt": "2023-01-01T12:00:00Z",
+      "students": [
+        {
+          "id": "...",
+          "studentId": "20250001",
+          "name": "李四"
+        }
+      ]
+    }
+  ]
+  ```
 
 ### GET /Class/{classId}/students
 
@@ -160,6 +220,18 @@
   ```bash
   curl -X GET http://localhost:5000/Class/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/students
   ```
+- **返回示例**:
+  ```json
+  [
+    {
+      "id": "...",
+      "studentId": "20250001",
+      "name": "李四",
+      "createdAt": "2023-01-01T12:00:00Z",
+      "classId": "..."
+    }
+  ]
+  ```
 
 ### POST /Class
 
@@ -172,6 +244,13 @@
 - **示例**:
   ```bash
   curl -X POST -F "name=高三1班" http://localhost:5000/Class
+  ```
+- **返回示例** (成功时返回创建的班级信息):
+  ```json
+  {
+    "id": "...",
+    "name": "高三1班"
+  }
   ```
 
 ---
@@ -188,12 +267,26 @@
 - **路由**: `/EssaySubmission/summary`
 - **参数**:
   - `top` (必需, `int`): 获取最近的 N 条记录。
-  - `studentId` (可选, `guid`): 学生的 GUID。
-  - `studentName` (可选, `string`): 学生的 姓名 (如果未提供 `studentId`)。
+  - `studentId` (可选, `guid`): 学生的 GUID。**注意：必须提供 studentId 或 studentName 中的一个。**
+  - `studentName` (可选, `string`): 学生的 姓名 (如果未提供 `studentId`)。**注意：必须提供 studentId 或 studentName 中的一个。**
 - **示例**:
   ```bash
   # 获取指定学生ID的最近5篇作文概要
   curl -X GET "http://localhost:5000/EssaySubmission/summary?top=5&studentId=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+  # 获取指定学生姓名的最近5篇作文概要
+  curl -X GET "http://localhost:5000/EssaySubmission/summary?top=5&studentName=李四"
+  ```
+- **返回示例**:
+  ```json
+  [
+    {
+      "id": "...",
+      "titleContext": "论科技与人文",
+      "finalScore": 55,
+      "isError": false,
+      "createdAt": "2023-10-27T10:00:00Z"
+    }
+  ]
   ```
 
 ### GET /EssaySubmission/{id}
@@ -208,6 +301,54 @@
   ```bash
   curl -X GET "http://localhost:5000/EssaySubmission/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
   ```
+- **返回示例**:
+  - **批阅进行中 (仅有解析文本)**:
+    ```json
+    {
+      "status": "Judging is in progress.",
+      "parsedText": "..."
+    }
+    ```
+  - **批阅进行中 (已有AI结果)**:
+    ```json
+    {
+      "status": "Judging is in progress.",
+      "parsedText": "...",
+      "aiResults": [
+        {
+          // AIResult 对象的结构
+        }
+      ]
+    }
+    ```
+  - **批阅完成或出错**:
+    ```json
+    {
+      "id": "...",
+      "essayAssignment": {
+        "id": "...",
+        "titleContext": "论科技与人文",
+        "totalScore": 60
+      },
+      "student": {
+        "id": "...",
+        "name": "李四"
+      },
+      "finalScore": 55,
+      "comments": "...", // 如果有评论
+      "submissionDate": "2023-10-27T10:00:00Z",
+      "imageUrl": "...",
+      "columnCount": 3,
+      "parsedText": "...",
+      "isError": false,
+      "errorMessage": null, // 如果 isError 为 true，这里会有错误信息
+      "aiResults": [
+        {
+          // AIResult 对象的结构
+        }
+      ]
+    }
+    ```
 
 ### POST /EssaySubmission
 
@@ -223,12 +364,55 @@
   ```bash
   curl -X POST -F "essayAssignmentId=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" -F "imageFile=@/path/to/your/essay.png" -F "columnCount=3" http://localhost:5000/EssaySubmission
   ```
+- **返回示例** (成功时返回提交记录的ID):
+  ```json
+  {
+    "submissionId": "..."
+  }
+  ```
+
+### PUT /EssaySubmission/{id}
+
+更新一篇已存在的作文提交记录。
+
+- **方法**: `PUT`
+- **路由**: `/EssaySubmission/{id}`
+- **参数**:
+  - `id` (必需, `guid`): 要更新的作文提交记录的 GUID。
+- **请求体** (JSON):
+  ```json
+  {
+    "studentId": "...", // 可选，学生的 GUID
+    "finalScore": 55 // 可选，最终分数
+  }
+  ```
+- **示例**:
+  ```bash
+  curl -X PUT -H "Content-Type: application/json" -d '{"studentId":"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", "finalScore":60}' http://localhost:5000/EssaySubmission/yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy
+  ```
+- **返回示例** (成功时返回更新后的提交记录详情):
+  ```json
+  {
+    "id": "...",
+    "essayAssignment": { ... }, // 完整的 EssayAssignment 对象
+    "student": { ... }, // 完整的 Student 对象
+    "finalScore": 60,
+    "comments": "...",
+    "submissionDate": "...",
+    "imageUrl": "...",
+    "columnCount": 3,
+    "parsedText": "...",
+    "isError": false,
+    "errorMessage": null,
+    "aiResults": [ ... ] // AIResult 对象列表
+  }
+  ```
 
 ---
 
 ## 5. EssaySubmissionSearchController
 
-用于按标题模糊查询作文，返回作文、学生姓名/ID、分数、日期等。
+用于按标题模糊查询作文，返回作文、学生姓名/ID、分
 
 ### GET /EssaySubmissionSearch
 
@@ -242,3 +426,155 @@
   ```bash
   curl -X GET "http://localhost:5000/EssaySubmissionSearch?title=科技&top=5"
   ```
+- **返回示例**:
+  ```json
+  [
+    {
+      "id": "...",
+      "title": "论科技与人文",
+      "createdAt": "2023-10-27T10:00:00Z",
+      "studentId": "...",
+      "studentName": "李四",
+      "finalScore": 55
+    }
+  ]
+  ```
+
+---
+
+## 6. ApiKeyController
+
+用于管理 API 密钥。
+
+### GET /ApiKey
+
+获取所有 API 密钥列表。
+
+**返回:** `200 OK`
+
+```json
+[
+  {
+    "id": "...",  // GUID
+    "key": "...",
+    "serviceType": "...",
+    "secret": "...",
+    "endpoint": "...",
+    "description": "...",
+    "isEnabled": true,
+    "isDeleted": false,
+    "createdAt": "2023-01-01T12:00:00Z",
+    "updatedAt": "2023-01-01T12:00:00Z"
+  }
+]
+```
+
+### GET /ApiKey/{id}
+
+根据 ID 获取指定的 API 密钥。
+
+**参数:**
+- `id` (必需, `guid`): API 密钥的 ID。
+
+**返回:** `200 OK`
+
+```json
+{
+  "id": "...",  // GUID
+  "key": "...",
+  "serviceType": "...", //OpenAI or Aliyun
+  "secret": "...",
+  "endpoint": "...",
+  "description": "...",
+  "isEnabled": true,
+  "isDeleted": false,
+  "createdAt": "2023-01-01T12:00:00Z",
+  "updatedAt": "2023-01-01T12:00:00Z"
+}
+```
+
+### POST /ApiKey
+
+创建一个新的 API 密钥。
+
+**请求体 (表单数据):**
+
+- `serviceType` (必需, `string`): 服务类型
+- `key` (必需, `string`): 密钥
+- `secret` (可选, `string`): 密钥暗文
+- `endpoint` (可选, `string`): 端点
+- `description` (可选, `string`): 描述
+
+**返回:** `201 Created`
+
+```json
+{
+  "id": "...",  // GUID
+  "key": "...",
+  "serviceType": "...",
+  "secret": "...",
+  "endpoint": "...",
+  "description": "...",
+  "isEnabled": true,
+  "isDeleted": false,
+  "createdAt": "2023-01-01T12:00:00Z",
+  "updatedAt": "2023-01-01T12:00:00Z"
+}
+```
+
+### PUT /ApiKey/{id}
+
+更新一个已存在的 API 密钥。
+
+**参数:**
+- `id` (必需, `guid`): 要更新的 API 密钥的 ID。
+
+**请求体 (JSON):**
+
+```json
+{
+  "id": "...",  // GUID (必须与路由中的 ID 匹配)
+  "serviceType": "...", // 可选
+  "key": "...", // 可选
+  "secret": "...", // 可选
+  "endpoint": "...", // 可选
+  "description": "...", // 可选
+  "isEnabled": true, // 可选
+  "isDeleted": false // 可选
+  // createdAt 和 updatedAt 字段通常不需要在请求体中提供
+}
+```
+
+**返回:** `204 No Content` (成功时)
+
+**示例:**
+```bash
+curl -X PUT -H "Content-Type: application/json" -d '{"id":"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", "key":"new_key_value", "isEnabled":false}' http://localhost:5000/api/ApiKey/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+
+### DELETE /ApiKey/{id}
+
+删除一个 API 密钥。
+
+**参数:**
+- `id` (必需, `guid`): API 密钥的 ID。
+
+**返回:** `204 No Content` (成功时)
+
+**示例:**
+```bash
+curl -X DELETE http://localhost:5000/api/ApiKey/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+---
+
+## 附录：错误码
+
+| 错误码 | 描述 |
+| ------ | ---- |
+| 400    | 请求参数错误 |
+| 401    | 未授权，JWT 令牌无效或已过期 |
+| 403    | 禁止访问，权限不足 |
+| 404    | 资源未找到 |
+| 500    | 服务器内部错误 |

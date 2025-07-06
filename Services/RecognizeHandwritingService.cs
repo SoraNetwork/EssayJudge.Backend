@@ -13,20 +13,19 @@ namespace SoraEssayJudge.Services
 {
     public class RecognizeHandwritingService
     {
-        private readonly IConfiguration _configuration;
+        private readonly ApiKeyService _apiKeyService;
 
-        public RecognizeHandwritingService(IConfiguration configuration)
+        public RecognizeHandwritingService(ApiKeyService apiKeyService)
         {
-            _configuration = configuration;
+            _apiKeyService = apiKeyService;
         }
 
-        private AlibabaCloud.OpenApiClient.Client CreateClient()
+        private AlibabaCloud.OpenApiClient.Client CreateClient(string accessKeyId, string accessKeySecret)
         {
-            var credential = new Aliyun.Credentials.Client();
             var config = new AlibabaCloud.OpenApiClient.Models.Config
             {
-                AccessKeySecret = _configuration["Aliyun:AccessKeySecret"],
-                AccessKeyId = _configuration["Aliyun:AccessKeyId"],
+                AccessKeyId = accessKeyId,
+                AccessKeySecret = accessKeySecret,
                 Endpoint = "ocr-api.cn-hangzhou.aliyuncs.com"
             };
             return new AlibabaCloud.OpenApiClient.Client(config);
@@ -51,7 +50,13 @@ namespace SoraEssayJudge.Services
 
         public async Task<string> RecognizeAsync(string filePath)
         {
-            var client = CreateClient();
+            var apiKey = await _apiKeyService.GetAvailableKey("Aliyun");
+            if (apiKey == null)
+            {
+                return "Error: No available Aliyun API key.";
+            }
+
+            var client = CreateClient(apiKey.Key, apiKey.Secret!);
             var apiParams = CreateApiInfo();
             using var body = StreamUtil.ReadFromFilePath(filePath);
             var runtime = new RuntimeOptions();

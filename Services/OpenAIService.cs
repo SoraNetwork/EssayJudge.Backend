@@ -11,20 +11,23 @@ namespace SoraEssayJudge.Services
 {
     public class OpenAIService
     {
-        private readonly string _apiKey;
-        private readonly string _endpoint;
+        private readonly ApiKeyService _apiKeyService;
         private readonly HttpClient _httpClient;
 
-        public OpenAIService(IConfiguration configuration)
+        public OpenAIService(IConfiguration configuration, ApiKeyService apiKeyService)
         {
-            _apiKey = configuration["OpenAI:ApiKey"]!;
-            _endpoint = configuration["OpenAI:Endpoint"]!;
+            _apiKeyService = apiKeyService;
             _httpClient = new HttpClient();
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
         }
 
-        public async Task<string> GetChatCompletionAsync(string userPrompt, string model = "qwen-max-latest")
+        public async Task<string> GetChatCompletionAsync(string userPrompt, string model = "qwen-plus-latest")
         {
+            var apiKey = await _apiKeyService.GetAvailableKey("OpenAI");
+            if (apiKey == null)
+            {
+                return "Error: No available OpenAI API key.";
+            }
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Key);
             var requestBody = new
             {
                 model = model,
@@ -35,7 +38,7 @@ namespace SoraEssayJudge.Services
                 stream = true
             };
 
-            var requestUri = $"{_endpoint}";
+            var requestUri = $"{apiKey.Endpoint!}";
             var request = new HttpRequestMessage(HttpMethod.Post, requestUri)
             {
                 Content = new StringContent(JsonConvert.SerializeObject(requestBody), Encoding.UTF8, "application/json")

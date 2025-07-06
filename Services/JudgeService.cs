@@ -122,7 +122,7 @@ namespace SoraEssayJudge.Services
                     judgePromptBuilder.Append("返回示例：$$50$$ ##示例评语## \n");
                     string judgePrompt = judgePromptBuilder.ToString();
 
-                    var modelsToUse = new[] { "deepseek-v3" , "deepseek-r1" , "qwen-plus","qwq-plus" };
+                    var modelsToUse = new[] { "deepseek-r1-distill-qwen-32b" , "deepseek-r1-distill-llama-70b", "deepseek-r1-0528", "qwen-plus-latest", "qwq-plus-latest" };
                     var results = new List<SoraEssayJudge.Models.AIResult>();
                     var scores = new List<int>();
 
@@ -175,9 +175,9 @@ namespace SoraEssayJudge.Services
                         submission.FinalScore = average;
                         _logger.LogInformation("Calculated average score {AverageScore} with variance {Variance} for submission ID: {SubmissionId}", average, variance, submissionId);
 
-                        if (variance > 5)
+                        if (variance > 10)
                         {
-                            var errorMessage = $"Score variance ({variance:F2}) exceeds threshold of 5. Manual review required.";
+                            var errorMessage = $"Score variance ({variance:F2}) exceeds threshold of 10. Manual review required.";
                             _logger.LogWarning("High score variance for submission ID: {SubmissionId}. {ErrorMessage}", submissionId, errorMessage);
                             errors.Add(errorMessage);
                         }
@@ -212,7 +212,7 @@ namespace SoraEssayJudge.Services
                     // The report will include any available data and reflect the errors.
                     _logger.LogInformation("Generating final report for submission ID: {SubmissionId}", submissionId);
                     var reportPrompt = BuildReportPrompt(submission, parsedText);
-                    submission.JudgeResult = await openAIService.GetChatCompletionAsync(reportPrompt, "deepseek-r1");
+                    submission.JudgeResult = await openAIService.GetChatCompletionAsync(reportPrompt, "deepseek-r1-0528");
                     _logger.LogInformation("Final report generated successfully for submission ID: {SubmissionId}", submissionId);
                 }
                 catch (Exception ex)
