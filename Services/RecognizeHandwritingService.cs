@@ -64,8 +64,7 @@ namespace SoraEssayJudge.Services
             var resp = await Task.Run(() => client.CallApi(apiParams, request, runtime));
             return AlibabaCloud.TeaUtil.Common.ToJSONString(resp);
         }
-
-        public async Task<string> ParseHandwritingResult(string json)
+        public static string ParseHandwritingResultSync(string json)
         {
             var root = Newtonsoft.Json.Linq.JObject.Parse(json);
             var dataStr = root["body"]?["Data"]?.ToString();
@@ -87,7 +86,10 @@ namespace SoraEssayJudge.Services
                 }
             } 
             return result.ToString().Trim();
-
+        }
+        public async Task<string> ParseHandwritingResult(string json)
+        {
+            return await Task.Run(() => ParseHandwritingResultSync(json));
         }
     }
 }

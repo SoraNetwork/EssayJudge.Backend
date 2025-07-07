@@ -8,10 +8,10 @@ namespace SoraEssayJudge.Models
         public Guid Id { get; set; } = Guid.NewGuid();
 
         [Required]
-        public string ServiceType { get; set; } // e.g., "OpenAI", "Aliyun"
+        public required string ServiceType { get; set; } // e.g., "OpenAI", "Aliyun"
 
         [Required]
-        public string Key { get; set; } // For OpenAI ApiKey or Aliyun AccessKeyId
+        public required string Key { get; set; } // For OpenAI ApiKey or Aliyun AccessKeyId
 
         public string? Secret { get; set; } // For Aliyun AccessKeySecret
 

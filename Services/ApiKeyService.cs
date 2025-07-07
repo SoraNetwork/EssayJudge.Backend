@@ -13,7 +13,7 @@ namespace SoraEssayJudge.Services
             _context = context;
         }
 
-        public async Task<ApiKey> GetAvailableKey(string serviceProvider)
+        public async Task<ApiKey?> GetAvailableKey(string serviceProvider)
         {
             return await _context.ApiKeys.FirstOrDefaultAsync(k => k.ServiceType == serviceProvider && k.IsEnabled);
         }
