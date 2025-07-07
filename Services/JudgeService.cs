@@ -57,15 +57,6 @@ namespace SoraEssayJudge.Services
                         return;
                     }
 
-                    // Check for student, but don't stop the process
-                    if (submission.StudentId == null)
-                    {
-                        _logger.LogWarning("Student not identified for submission ID: {SubmissionId}", submissionId);
-                        errors.Add("Student not identified for this submission.");
-                    }
-
-                    // TODO: Implement student recognition from image
-
                     // 由 ImageUrl 计算物理路径
                     string? imagePath = null;
                     if (!string.IsNullOrEmpty(submission.ImageUrl))
@@ -99,6 +90,32 @@ namespace SoraEssayJudge.Services
                         {
                             submission.Title = lines[0];
                         }
+
+                        if (lines[^1].Contains("$$"))
+                        {
+                            var studentName = lines[^1].Replace("$$", "").Trim();
+                            _logger.LogInformation("Extracted potential student name: {StudentName} for submission ID: {SubmissionId}", studentName, submissionId);
+                            submission.ParsedText = parsedText.Replace(lines[^1], "").Trim(); // Remove the last line containing the student name
+
+                            // Attempt to find the student by name
+                            var student = await context.Students.FirstOrDefaultAsync(s => s.Name == studentName);
+
+                            if (student != null)
+                            {
+                                submission.StudentId = student.Id;
+                                _logger.LogInformation("Found student with ID: {StudentId} for name: {StudentName}", student.Id, studentName);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("Student with name: {StudentName} not found in the database for submission ID: {SubmissionId}", studentName, submissionId);
+                                errors.Add($"Student '{studentName}' not found in the database.");
+                            }
+                        }
+                    }
+                    if (submission.StudentId == null)
+                    {
+                        _logger.LogWarning("Student not identified for submission ID: {SubmissionId}", submissionId);
+                        errors.Add("Student not identified for this submission.");
                     }
                     
                     _logger.LogInformation("Image processed successfully for submission ID: {SubmissionId}. Parsed text length: {ParsedTextLength}", submissionId, parsedText.Length);
@@ -260,17 +277,18 @@ namespace SoraEssayJudge.Services
             reportBuilder.AppendLine("| :--- | :--- |");
             reportBuilder.AppendLine("| **作文题目** | [在此处填写完整的作文题目] |");
             reportBuilder.AppendLine($"| **预估分数** | **{submission.FinalScore:F0} / {assignment.TotalScore} 分** |"); // Use actual score and total score
-            reportBuilder.AppendLine("## 综合评价");
-            reportBuilder.AppendLine($"*   **总分：** **{submission.FinalScore:F0} / {assignment.TotalScore} 分**"); // Use actual score and total score
-            reportBuilder.AppendLine("*   **等级划分：** `[一类卷 / 二类卷上 / 二类卷下 / 三类卷等]`");
+            reportBuilder.AppendLine("| **等级** | `[一类卷 / 二类卷上 / 二类卷下 / 三类卷等]` |");
+            reportBuilder.AppendLine("### 综合评价");
             reportBuilder.AppendLine("*   **一句话总评：** `[例如：立意精准，论证有力，但语言细节有待打磨。]` 或 `[例如：结构完整，但思想深度不足，论据较为陈旧。]`");
             reportBuilder.AppendLine("---");
-            reportBuilder.AppendLine("## 三、多维度分析与诊断");
+            reportBuilder.AppendLine("## 一、多维度分析与诊断");
             reportBuilder.AppendLine("<!-- ");
             reportBuilder.AppendLine("    以下四个维度是高考作文评分的核心。");
             reportBuilder.AppendLine("    - “亮点”用于肯定学生的优点，建立信心。");
             reportBuilder.AppendLine("    - “问题”用于指出不足，明确方向。");
             reportBuilder.AppendLine("    - “具体示例”是关键，务必引用原文，使分析有据可依。");
+            reportBuilder.AppendLine("    - “待改进”部分是最重要的，务必给出具体、可操作的修改建议。");
+            reportBuilder.AppendLine("    - 注意：若没有优点或问题，可以不输出对应部分。");
             reportBuilder.AppendLine("-->");
             reportBuilder.AppendLine("### 1. 内容与立意 (发展等级 - 20分)");
             reportBuilder.AppendLine("*   **本项得分：** `[得分] / 20 分`");
@@ -312,7 +330,7 @@ namespace SoraEssayJudge.Services
             reportBuilder.AppendLine("    *   `[例如：存在少量涂改，个别字迹潦草，需注意卷面整洁度。]`");
             reportBuilder.AppendLine("    *   `[例如：标点符号使用不规范，如“一逗到底”，需要加强练习。]`");
             reportBuilder.AppendLine("---");
-            reportBuilder.AppendLine("## 四、核心问题与提升建议");
+            reportBuilder.AppendLine("## 二、核心问题与提升建议");
             reportBuilder.AppendLine("1.  **当前首要问题诊断：**");
             reportBuilder.AppendLine("    *   `[用一两句话概括当前最需要解决的核心问题，例如：文章最大的短板在于论证的深度不足，未能深入挖掘材料内涵。]`");
             reportBuilder.AppendLine("2.  **具体提升建议：**");
@@ -321,7 +339,18 @@ namespace SoraEssayJudge.Services
             reportBuilder.AppendLine("    *   **语言表达方面：** 准备一个“高级词汇/精妙句式”积累本，日常阅读时注意摘抄和模仿。写作时，有意识地替换平淡的词语，尝试运用排比、对偶等句式增强气势。");
             reportBuilder.AppendLine("    *   **素材积累方面：** 建议多关注《人民日报》评论、时事热点深度解析等，积累新鲜、有深度的论据，替代老旧的“司马迁、屈原、爱迪生”等通用素材。");
             reportBuilder.AppendLine("---");
-            reportBuilder.AppendLine("## 五、总结");
+            reportBuilder.AppendLine("## 三、细节修改建议 （若不需要修改可不输出）");
+            reportBuilder.AppendLine("1.  **错别字/病句：**（若不需要修改可不输出）");
+            reportBuilder.AppendLine("    *   `[例如：第2段第3句“……”，应改为“……”]`");
+            reportBuilder.AppendLine("    *   `[例如：第4段第1句“……”，存在语病，应改为“……”]`");
+            reportBuilder.AppendLine("2.  **段落调整：** （若不需要修改可不输出）");
+            reportBuilder.AppendLine("    *   `[例如：建议将第3段和第4段合并，形成更强的论证逻辑。]`");
+            reportBuilder.AppendLine("    *   `[例如：第5段可以拆分为两段，分别讨论“……”和“……”]`");
+            reportBuilder.AppendLine("3.  **语言润色：** （若不需要修改可不输出）");
+            reportBuilder.AppendLine("    *   `[例如：第1段第2句“……”可以改为“……”以增强文采。]`");
+            reportBuilder.AppendLine("    *   `[例如：第2段最后一句“……”可以改为“……”以使结尾更有力。]`");
+            reportBuilder.AppendLine("---");
+            reportBuilder.AppendLine("## 四、总结");
             reportBuilder.AppendLine("[一个比较完善的总结。可以结合AI模型给出的评语 深度概括。]");
             reportBuilder.AppendLine("\n--- 报告内容结束 ---"); // Add an end marker
             return reportBuilder.ToString();

@@ -136,7 +136,7 @@ namespace SoraEssayJudge.Controllers
             // If judging is not complete (no AI results yet) and there's no error
             if (!submission.IsError && (submission.AIResults == null || !submission.AIResults.Any()))
             {
-                if (! (submission.AIResults == null || !submission.AIResults.Any()))
+                if (!(submission.AIResults == null || !submission.AIResults.Any()))
                 {
                     _logger.LogInformation("Submission {SubmissionId} is still being judged. AI results got.", id);
                     return Ok(new { status = "Judging is in progress.", parsedText = submission.ParsedText, AIResults = submission.AIResults });
@@ -184,9 +184,31 @@ namespace SoraEssayJudge.Controllers
                 submission.GetType().GetProperty("ErrorMessage")?.SetValue(submission, null);
             }
 
+            if (updateDto.FinalScore.HasValue)
+            {
+                submission.ErrorMessage = "Manual score updated.";
+            }
+
             await _context.SaveChangesAsync();
             _logger.LogInformation("Submission {SubmissionId} updated successfully.", id);
             return Ok(submission);
+        }
+        [HttpDelete]
+        public async Task<IActionResult> DeleteSubmission([FromQuery] Guid id)
+        {
+            _logger.LogInformation("Deleting submission with ID: {SubmissionId}", id);
+            var submission = await _context.EssaySubmissions.FindAsync(id);
+            if (submission == null)
+            {
+                _logger.LogWarning("Submission with ID: {SubmissionId} not found.", id);
+                return NotFound();
+            }
+
+            _context.EssaySubmissions.Remove(submission);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Successfully deleted submission with ID: {SubmissionId}", id);
+            return NoContent();
         }
     }
 }
