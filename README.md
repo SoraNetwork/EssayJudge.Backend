@@ -39,8 +39,8 @@ SoraEssayJudge 是一个基于 ASP.NET Core 构建的现代化 Web API，旨在�
     cd SoraEssayJudge
     ```
 
-2.  **配置 API 密钥**
-    打开 `appsettings.json` 或 `appsettings.Development.json` 文件，填入必要的配置信息，特别是第三方服务的 API 密钥。
+2.  **配置数据库与基础设置**
+    打开 `appsettings.json` 或 `appsettings.Development.json` 文件，填入基础配置信息（如数据库连接、JWT 密钥等），**无需在此处填写 OpenAI/Aliyun 的 API Key**。
 
     ```json
     {
@@ -55,14 +55,6 @@ SoraEssayJudge 是一个基于 ASP.NET Core 构建的现代化 Web API，旨在�
         "Key": "YOUR_SUPER_SECRET_KEY_HERE", // 替换为你的密钥
         "Issuer": "SoraEssayJudge",
         "Audience": "SoraEssayJudge"
-      },
-      "Aliyun": {
-        "AccessKeyId": "YOUR_ALIYUN_ACCESS_KEY_ID", // 替换为你的阿里云 AccessKeyId
-        "AccessKeySecret": "YOUR_ALIYUN_ACCESS_KEY_SECRET" // 替换为你的阿里云 AccessKeySecret
-      },
-      "OpenAI": {
-        "ApiKey": "YOUR_OPENAI_API_KEY", // 替换为你的 OpenAI API Key
-        "Endpoint": "YOUR_OPENAI_ENDPOINT" // 替换为你的 OpenAI Endpoint
       },
       "Features": {
         "AllowUserRegistration": true
@@ -79,6 +71,30 @@ SoraEssayJudge 是一个基于 ASP.NET Core 构建的现代化 Web API，旨在�
     dotnet run
     ```
     或者直接在 Visual Studio 中按 F5 启动项目。
+
+4.  **通过 APIKey 接口配置第三方服务密钥**
+    启动服务后，使用管理员账号登录系统，通过 `/api/ApiKey` 接口添加 OpenAI 和阿里云的 API Key。  
+    你可以在 Swagger UI 或 Postman 中调用该接口，示例：
+
+    - **添加 OpenAI 密钥**
+      ```bash
+      curl -X POST http://localhost:5000/api/ApiKey \
+        -F "serviceType=OpenAI" \
+        -F "key=YOUR_OPENAI_API_KEY" \
+        -F "endpoint=YOUR_OPENAI_ENDPOINT" \
+        -F "description=OpenAI 主账号"
+      ```
+
+    - **添加阿里云 OCR 密钥**
+      ```bash
+      curl -X POST http://localhost:5000/api/ApiKey \
+        -F "serviceType=Aliyun" \
+        -F "key=YOUR_ALIYUN_ACCESS_KEY_ID" \
+        -F "secret=YOUR_ALIYUN_ACCESS_KEY_SECRET" \
+        -F "description=阿里云手写文字识别"
+      ```
+
+    > 详细字段说明请参考 [API_Documentation.md](./API_Documentation.md) 的 ApiKeyController 部分。
 
 ### 使用
 
