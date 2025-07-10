@@ -34,7 +34,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: SoraEssayJudge.Backend-Release-linux-x64 
-        path: ./bin/Release/net9.0/linux-x64/publish/
+        path: ./bin/Release/net8.0/linux-x64/publish/
     
     
     
