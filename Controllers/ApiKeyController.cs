@@ -60,7 +60,7 @@ namespace SoraEssayJudge.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutApiKey(Guid id, ApiKey apiKey)
+        public async Task<IActionResult> PutApiKey(Guid id,[FromForm] ApiKey apiKey)
         {
             if (id != apiKey.Id)
             {

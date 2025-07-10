@@ -109,8 +109,8 @@ namespace SoraEssayJudge.Controllers
             _logger.LogInformation("Successfully created essay assignment with ID: {AssignmentId}", assignment.Id);
             return Ok(new { assignmentId = assignment.Id });
         }
-        [HttpDelete]
-        public async Task<IActionResult> DeleteAssignment([FromQuery] Guid id)
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteAssignment( Guid id)
         {
             _logger.LogInformation("Deleting essay assignment with ID: {Id}", id);
             var assignment = await _context.EssayAssignments.FindAsync(id);

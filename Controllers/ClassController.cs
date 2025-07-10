@@ -65,5 +65,20 @@ namespace SoraEssayJudge.Controllers
             await _context.SaveChangesAsync();
             return Ok(newClass);
         }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteClass(Guid id)
+        {
+            var classToDelete = await _context.Classes.FindAsync(id);
+            if (classToDelete == null)
+            {
+                return NotFound();
+            }
+
+            _context.Classes.Remove(classToDelete);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
     }
 }

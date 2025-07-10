@@ -97,6 +97,8 @@ namespace SoraEssayJudge.Services
                             _logger.LogInformation("Extracted potential student name: {StudentName} for submission ID: {SubmissionId}", studentName, submissionId);
                             submission.ParsedText = parsedText.Replace(lines[^1], "").Trim(); // Remove the last line containing the student name
 
+                            parsedText = submission.ParsedText; // Update parsedText after removing the last line
+
                             // Attempt to find the student by name
                             var student = await context.Students.FirstOrDefaultAsync(s => s.Name == studentName);
 

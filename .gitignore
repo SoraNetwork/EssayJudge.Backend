@@ -40,3 +40,4 @@ publish/
 essayfiles/
 
 app*.json
+appsettings.json
