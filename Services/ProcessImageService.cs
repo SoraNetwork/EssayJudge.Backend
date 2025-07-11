@@ -44,7 +44,7 @@ namespace SoraEssayJudge.Services
             string combinedText = string.Join("\n", columnTexts);
             string userPrompt = @"system:
                 请从提供的OCR文本中提取完整的作文内容。该文本由三栏OCR结果合并而成，可能包含非作文内容，且段落顺序可能因分栏处理而混乱。
-                请根据文本内容和逻辑，参照左上 -> 左下 -> 中上 -> 中下 -> 右上 -> 右下的顺序重组段落，提取作文主体。
+                请根据文本内容和逻辑，参照文字块的正确顺序的顺序重组段落，提取作文主体。
                 输出要求：
                 1.  务必包含作文标题，标题单独成段，不带书名号。
                 2.  正文按自然段落输出。

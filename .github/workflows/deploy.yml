@@ -23,7 +23,7 @@ jobs:
       
     - name: Build the application
       run: |
-        dotnet publish -f net8.0 -c Release -r linux-x64 --self-contained false /p:PublishSingleFile=true
+        dotnet publish -f net8.0 -c Release -r linux-x64 --self-contained false /p:PublishSingleFile=true /p:SourceRevisionId=${{ github.sha }}
         
     - name: Remove extra files
       run: |
@@ -75,8 +75,8 @@ jobs:
         username: ${{ secrets.HANGZHOU_USERNAME }}
         password: ${{ secrets.HANGZHOU_KEY }}
         script: sudo supervisorctl start sora-essayjudge-backend-service
-    
-    
-    
-    
-    
+
+
+
+
+

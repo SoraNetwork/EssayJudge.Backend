@@ -60,7 +60,19 @@ namespace SoraEssayJudge.Services
             var apiParams = CreateApiInfo();
             using var body = StreamUtil.ReadFromFilePath(filePath);
             var runtime = new RuntimeOptions();
-            var request = new OpenApiRequest { Stream = body };
+            
+
+            Dictionary<string, object> queries = new Dictionary<string, object>(){};
+            queries["NeedRotate"] = true;
+            queries["OutputTable"] = false;
+            queries["NeedSortPage"] = true;
+            queries["Paragraph"] = true;
+
+            var request = new OpenApiRequest
+            {
+                Query = AlibabaCloud.OpenApiUtil.Client.Query(queries),
+                Stream = body,
+            };
             var resp = await Task.Run(() => client.CallApi(apiParams, request, runtime));
             return AlibabaCloud.TeaUtil.Common.ToJSONString(resp);
         }
@@ -71,18 +83,18 @@ namespace SoraEssayJudge.Services
             if (string.IsNullOrEmpty(dataStr)) return "Data 字段为空";
 
             var dataObj = Newtonsoft.Json.Linq.JObject.Parse(dataStr);
-            var wordsInfo = dataObj["prism_wordsInfo"] as Newtonsoft.Json.Linq.JArray;
-            if (wordsInfo == null) return "prism_wordsInfo 字段为空";
+            var paragraphsInfo = dataObj["prism_paragraphsInfo"] as Newtonsoft.Json.Linq.JArray;
+            if (paragraphsInfo == null) return "prism_paragraphsInfo 字段为空";
 
             var result = new System.Text.StringBuilder();
-            foreach (var wordInfo in wordsInfo)
+            foreach (var paraInfo in paragraphsInfo)
             {
-                var word = wordInfo["word"]?.ToString();
-                var x = wordInfo["x"]?.ToString();
-                var y = wordInfo["y"]?.ToString();
-                if (!string.IsNullOrEmpty(word) && x != null && y != null)
+                var paragraphId = paraInfo["paragraphId"]?.ToObject<int>();
+                var word = paraInfo["word"]?.ToString();
+                
+                if (paragraphId != null && !string.IsNullOrEmpty(word))
                 {
-                    result.Append($"{word}({x},{y}) ");
+                    result.Append($"Para{paragraphId + 1}. {word} ");
                 }
             } 
             return result.ToString().Trim();
