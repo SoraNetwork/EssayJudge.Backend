@@ -2,6 +2,7 @@ name: Deploy Backend
 
 on:
   workflow_dispatch:
+  push:
 
 jobs:
   publish:
@@ -26,7 +27,7 @@ jobs:
         
     - name: Remove extra files
       run: |
-        cd ./bin/Release/net9.0/linux-x64/publish/
+        cd ./bin/Release/net8.0/linux-x64/publish/
         rm -f *.pdb
         rm -f *.json
         
@@ -35,6 +36,46 @@ jobs:
       with:
         name: SoraEssayJudge.Backend-Release-linux-x64 
         path: ./bin/Release/net8.0/linux-x64/publish/
+
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: SoraEssayJudge.Backend-Release-linux-x64
+        path: ./deploy-package
+        
+    - name: Remove excluded files
+      run: |
+        find ./deploy-package -name "appsettings*.json" -delete
+
+    - name: Stop remote service
+      uses: appleboy/ssh-action@v1
+      with: 
+        host: ${{ secrets.HANGZHOU_SERVER }}
+        username: ${{ secrets.HANGZHOU_USERNAME }}
+        password: ${{ secrets.HANGZHOU_KEY }}
+        script: sudo supervisorctl stop sora-essayjudge-backend-service
+          
+    - name: Deploy via SFTP
+      uses: wlixcc/SFTP-Deploy-Action@v1.2.5
+      with:
+        server: ${{ secrets.HANGZHOU_SERVER }}
+        username: ${{ secrets.HANGZHOU_USERNAME }}
+        password: ${{ secrets.HANGZHOU_KEY }}
+        local_path: './deploy-package/*'
+        remote_path: '/www/SoraEssayJudge.Backend'
+        
+    - name: Start remote service
+      uses: appleboy/ssh-action@v1
+      with: 
+        host: ${{ secrets.HANGZHOU_SERVER }}
+        username: ${{ secrets.HANGZHOU_USERNAME }}
+        password: ${{ secrets.HANGZHOU_KEY }}
+        script: sudo supervisorctl start sora-essayjudge-backend-service
+    
+    
     
     
     
