@@ -174,8 +174,10 @@ namespace SoraEssayJudge.Controllers
             }
             if (updateDto.FinalScore.HasValue)
             {
-                submission.FinalScore = updateDto.FinalScore.Value;
+                submission.Score = updateDto.FinalScore;
             }
+
+            
 
             // 清除错误信息
             submission.IsError = false;

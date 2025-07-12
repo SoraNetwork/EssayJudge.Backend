@@ -15,7 +15,7 @@ namespace SoraEssayJudge.Models
         public string? ParsedText { get; set; }
         public string? ErrorMessage { get; set; }
         public string? JudgeResult { get;set; }
-        public float Score { get; set; }
+        public double? Score { get; set; }
         public bool IsError { get; set; }
         public DateTime CreatedAt { get; set; }
 

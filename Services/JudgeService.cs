@@ -219,7 +219,7 @@ namespace SoraEssayJudge.Services
 
                     if (scores.Count > 1)
                     {
-                        double average = scores.Average();
+                        double average = Math.Round( scores.Average() , 2 );
                         double variance = scores.Sum(s => Math.Pow(s - average, 2)) / scores.Count;
                         submission.FinalScore = average;
                         _logger.LogInformation("Calculated average score {AverageScore} with variance {Variance} for submission ID: {SubmissionId}", average, variance, submissionId);
