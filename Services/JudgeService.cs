@@ -57,6 +57,20 @@ namespace SoraEssayJudge.Services
                         return;
                     }
 
+                    // Fetch model settings from DB
+                    var ocrProcessingModelSetting = await context.AIModelUsageSettings
+                        .Include(s => s.AIModel)
+                        .FirstOrDefaultAsync(s => s.UsageType == "OcrProcessing" && s.IsEnabled);
+
+                    if (ocrProcessingModelSetting == null || ocrProcessingModelSetting.AIModel == null)
+                    {
+                        _logger.LogError("No enabled 'OcrProcessing' model configured in AIModelUsageSettings for submission ID: {SubmissionId}.", submissionId);
+                        submission.IsError = true;
+                        submission.ErrorMessage = "OCR processing model not configured.";
+                        await context.SaveChangesAsync();
+                        return;
+                    }
+
                     // 由 ImageUrl 计算物理路径
                     string? imagePath = null;
                     if (!string.IsNullOrEmpty(submission.ImageUrl))
@@ -80,7 +94,7 @@ namespace SoraEssayJudge.Services
                     }
                     
                     _logger.LogInformation("Processing image for submission ID: {SubmissionId}, path: {ImagePath}", submissionId, imagePath);
-                    string parsedText = await processImageService.ProcessImageAsync(imagePath!, submission.ColumnCount, Guid.NewGuid());
+                    string parsedText = await processImageService.ProcessImageAsync(imagePath!, submission.ColumnCount, Guid.NewGuid(), ocrProcessingModelSetting.AIModel.ModelId);
                     submission.ParsedText = parsedText;
                     // 自动提取第一行为 Title
                     if (!string.IsNullOrWhiteSpace(parsedText))
@@ -141,7 +155,23 @@ namespace SoraEssayJudge.Services
                     judgePromptBuilder.Append("返回示例：$$50$$ ##示例评语## \n");
                     string judgePrompt = judgePromptBuilder.ToString();
 
-                    var modelsToUse = new[] { "deepseek-r1-distill-qwen-32b" , "deepseek-r1-distill-llama-70b", "deepseek-r1-0528", "qwen-plus-latest", "qwq-plus-latest" };
+                    var modelsToUse = await context.AIModelUsageSettings
+                        .Where(s => s.UsageType == "Judging" && s.IsEnabled && s.AIModel != null)
+                        .Include(s => s.AIModel)
+                        .Select(s => s.AIModel!.ModelId)
+                        .ToArrayAsync();
+
+                    if (modelsToUse.Length == 0)
+                    {
+                        var errorMessage = "No enabled 'Judging' models configured in AIModelUsageSettings.";
+                        _logger.LogError(errorMessage + " for submission ID: {SubmissionId}.", submissionId);
+                        errors.Add(errorMessage);
+                        submission.IsError = true;
+                        submission.ErrorMessage = string.Join(" | ", errors);
+                        await context.SaveChangesAsync();
+                        return;
+                    }
+
                     var results = new List<SoraEssayJudge.Models.AIResult>();
                     var scores = new List<int>();
 
@@ -231,8 +261,31 @@ namespace SoraEssayJudge.Services
                     // The report will include any available data and reflect the errors.
                     _logger.LogInformation("Generating final report for submission ID: {SubmissionId}", submissionId);
                     var reportPrompt = BuildReportPrompt(submission, parsedText);
-                    submission.JudgeResult = await openAIService.GetChatCompletionAsync(reportPrompt, "deepseek-r1-0528");
-                    _logger.LogInformation("Final report generated successfully for submission ID: {SubmissionId}", submissionId);
+                    
+                    var reportingModelSetting = await context.AIModelUsageSettings
+                        .Include(s => s.AIModel)
+                        .FirstOrDefaultAsync(s => s.UsageType == "Reporting" && s.IsEnabled);
+
+                    if (reportingModelSetting == null || reportingModelSetting.AIModel == null)
+                    {
+                        var errorMessage = "No enabled 'Reporting' model configured in AIModelUsageSettings.";
+                        _logger.LogError(errorMessage + " for submission ID: {SubmissionId}.", submissionId);
+                        errors.Add(errorMessage);
+                        if (submission.IsError)
+                        {
+                            submission.ErrorMessage += " | " + errorMessage;
+                        }
+                        else
+                        {
+                            submission.IsError = true;
+                            submission.ErrorMessage = errorMessage;
+                        }
+                    }
+                    else
+                    {
+                        submission.JudgeResult = await openAIService.GetChatCompletionAsync(reportPrompt, reportingModelSetting.AIModel.ModelId);
+                        _logger.LogInformation("Final report generated successfully for submission ID: {SubmissionId}", submissionId);
+                    }
                 }
                 catch (Exception ex)
                 {

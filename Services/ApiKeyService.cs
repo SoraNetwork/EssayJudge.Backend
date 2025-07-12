@@ -17,5 +17,14 @@ namespace SoraEssayJudge.Services
         {
             return await _context.ApiKeys.FirstOrDefaultAsync(k => k.ServiceType == serviceProvider && k.IsEnabled);
         }
+
+        public async Task<ApiKey?> GetApiKeyForModel(string modelName)
+        {
+            var aiModel = await _context.AIModels
+                .Include(m => m.ApiKey)
+                .FirstOrDefaultAsync(m => m.ModelId == modelName && m.ApiKey != null && m.ApiKey.IsEnabled);
+
+            return aiModel?.ApiKey;
+        }
     }
 }

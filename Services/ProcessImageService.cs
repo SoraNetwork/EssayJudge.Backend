@@ -18,7 +18,7 @@ namespace SoraEssayJudge.Services
             _openAIService = openAIService;
         }
 
-        public async Task<string> ProcessImageAsync(string imagePath, int columnCount, Guid id)
+        public async Task<string> ProcessImageAsync(string imagePath, int columnCount, Guid id, string modelName)
         {
             var columnTexts = new List<string>();
             using (Image image = Image.Load(imagePath))
@@ -61,7 +61,7 @@ namespace SoraEssayJudge.Services
                 $$王伟$$
                 ";
             
-            string chatResult = await _openAIService.GetChatCompletionAsync(userPrompt + combinedText, "qwen-plus");
+            string chatResult = await _openAIService.GetChatCompletionAsync(userPrompt + combinedText, modelName);
 
             return chatResult;
         }

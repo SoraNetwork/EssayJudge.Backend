@@ -22,7 +22,7 @@ namespace SoraEssayJudge.Services
 
         public async Task<string> GetChatCompletionAsync(string userPrompt, string model = "qwen-plus-latest")
         {
-            var apiKey = await _apiKeyService.GetAvailableKey("OpenAI");
+            var apiKey = await _apiKeyService.GetApiKeyForModel(model);
             if (apiKey == null)
             {
                 return "Error: No available OpenAI API key.";

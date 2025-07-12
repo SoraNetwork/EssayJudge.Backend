@@ -21,13 +21,19 @@ namespace SoraEssayJudge.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ApiKey>>> GetApiKeys()
         {
-            return await _context.ApiKeys.ToListAsync();
+            // Include AIModels when fetching ApiKeys
+            return await _context.ApiKeys
+                .Include(k => k.AIModels) // Add Include here
+                .ToListAsync();
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<ApiKey>> GetApiKey(Guid id)
         {
-            var apiKey = await _context.ApiKeys.FindAsync(id);
+            // Include AIModels when fetching a single ApiKey
+            var apiKey = await _context.ApiKeys
+                .Include(k => k.AIModels)
+                .FirstOrDefaultAsync(k => k.Id == id);
 
             if (apiKey == null)
             {
@@ -38,7 +44,7 @@ namespace SoraEssayJudge.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<ApiKey>> PostApiKey([FromForm] string serviceType, [FromForm] string key, [FromForm] string? secret, [FromForm] string? endpoint, [FromForm] string? description)
+        public async Task<ActionResult<ApiKey>> PostApiKey([FromForm] string serviceType, [FromForm] string key, [FromForm] string? secret, [FromForm] string? endpoint, [FromForm] string? description, [FromForm] List<string>? modelIds)
         {
             var apiKey = new ApiKey
             {
@@ -50,8 +56,17 @@ namespace SoraEssayJudge.Controllers
                 IsEnabled = true,
                 IsDeleted = false,
                 CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                UpdatedAt = DateTime.UtcNow,
             };
+
+            if (modelIds != null && modelIds.Any())
+            {
+                apiKey.AIModels = new List<AIModel>();
+                foreach (var modelId in modelIds.Distinct())
+                {
+                    apiKey.AIModels.Add(new AIModel { ModelId = modelId, ServiceType = apiKey.ServiceType });
+                }
+            }
         
             _context.ApiKeys.Add(apiKey);
             await _context.SaveChangesAsync();
@@ -60,15 +75,64 @@ namespace SoraEssayJudge.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutApiKey(Guid id,[FromForm] ApiKey apiKey)
+        public async Task<IActionResult> PutApiKey(Guid id, [FromForm] ApiKey apiKey, [FromForm] List<string>? modelIds)
         {
             if (id != apiKey.Id)
             {
                 return BadRequest();
             }
 
-            apiKey.UpdatedAt = DateTime.UtcNow;
-            _context.Entry(apiKey).State = EntityState.Modified;
+            var apiKeyToUpdate = await _context.ApiKeys
+                .Include(k => k.AIModels)
+                .FirstOrDefaultAsync(k => k.Id == id);
+
+            if (apiKeyToUpdate == null)
+            {
+                return NotFound();
+            }
+
+            // Update scalar properties from the provided apiKey object
+            apiKeyToUpdate.ServiceType = apiKey.ServiceType;
+            apiKeyToUpdate.Key = apiKey.Key;
+            apiKeyToUpdate.Secret = apiKey.Secret;
+            apiKeyToUpdate.Endpoint = apiKey.Endpoint;
+            apiKeyToUpdate.Description = apiKey.Description;
+            apiKeyToUpdate.IsEnabled = apiKey.IsEnabled;
+            apiKeyToUpdate.UpdatedAt = DateTime.UtcNow;
+
+            // Handle AIModels
+            var existingModels = apiKeyToUpdate.AIModels?.ToList() ?? new List<AIModel>();
+            var newModelIds = modelIds?.Distinct().ToList() ?? new List<string>();
+
+            // Models to remove
+            var modelsToRemove = existingModels
+                .Where(m => !newModelIds.Contains(m.ModelId))
+                .ToList();
+
+            foreach (var model in modelsToRemove)
+            {
+                var isUsed = await _context.AIModelUsageSettings.AnyAsync(s => s.AIModelId == model.Id);
+                if (isUsed)
+                {
+                    return BadRequest($"Cannot remove model '{model.ModelId}' because it is currently in use in a usage setting. Please remove the usage setting first.");
+                }
+            }
+            if (modelsToRemove.Any())
+            {
+                _context.AIModels.RemoveRange(modelsToRemove);
+            }
+
+            // Models to add
+            var existingModelIds = existingModels.Select(m => m.ModelId).ToList();
+            var modelIdsToAdd = newModelIds
+                .Where(modelId => !existingModelIds.Contains(modelId))
+                .ToList();
+
+            foreach (var modelId in modelIdsToAdd)
+            {
+                apiKeyToUpdate.AIModels ??= new List<AIModel>();
+                apiKeyToUpdate.AIModels.Add(new AIModel { ModelId = modelId, ServiceType = apiKeyToUpdate.ServiceType });
+            }
 
             try
             {
@@ -123,6 +187,114 @@ namespace SoraEssayJudge.Controllers
         private bool ApiKeyExists(Guid id)
         {
             return _context.ApiKeys.Any(e => e.Id == id);
+        }
+
+        [HttpGet("model-usage-settings")]
+        public async Task<ActionResult<IEnumerable<AIModelUsageSetting>>> GetModelUsageSettings()
+        {
+            return await _context.AIModelUsageSettings
+                .Include(s => s.AIModel)
+                .OrderBy(s => s.UsageType)
+                .ThenBy(s => s.AIModel != null ? s.AIModel.ModelId : "")
+                .ToListAsync();
+        }
+
+        [HttpPost("model-usage-settings")]
+        public async Task<ActionResult<AIModelUsageSetting>> CreateModelUsageSetting([FromForm] AIModelUsageSetting setting)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var modelExists = await _context.AIModels.AnyAsync(m => m.Id == setting.AIModelId);
+            if (!modelExists)
+            {
+                ModelState.AddModelError(nameof(setting.AIModelId), "The specified AIModelId does not exist.");
+                return BadRequest(ModelState);
+            }
+
+            setting.Id = Guid.NewGuid();
+            setting.CreatedAt = DateTime.UtcNow;
+            setting.UpdatedAt = DateTime.UtcNow;
+
+            _context.AIModelUsageSettings.Add(setting);
+            await _context.SaveChangesAsync();
+
+            // It's better to have a GetById endpoint, but for now we return with the list endpoint's name.
+            return CreatedAtAction(nameof(GetModelUsageSettings), new { id = setting.Id }, setting);
+        }
+
+        [HttpPut("model-usage-settings/{id}")]
+        public async Task<IActionResult> UpdateModelUsageSetting(Guid id, [FromForm] AIModelUsageSetting setting)
+        {
+            if (id != setting.Id)
+            {
+                return BadRequest("ID in URL does not match ID in body.");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var modelExists = await _context.AIModels.AnyAsync(m => m.Id == setting.AIModelId);
+            if (!modelExists)
+            {
+                ModelState.AddModelError(nameof(setting.AIModelId), "The specified AIModelId does not exist.");
+                return BadRequest(ModelState);
+            }
+
+            var existingSetting = await _context.AIModelUsageSettings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
+            if (existingSetting == null)
+            {
+                return NotFound();
+            }
+
+            setting.UpdatedAt = DateTime.UtcNow;
+            setting.CreatedAt = existingSetting.CreatedAt; // Preserve original creation date
+
+            _context.Entry(setting).State = EntityState.Modified;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!_context.AIModelUsageSettings.Any(e => e.Id == id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return NoContent();
+        }
+
+        [HttpDelete("model-usage-settings/{id}")]
+        public async Task<IActionResult> DeleteModelUsageSetting(Guid id)
+        {
+            var setting = await _context.AIModelUsageSettings.FindAsync(id);
+            if (setting == null)
+            {
+                return NotFound();
+            }
+
+            _context.AIModelUsageSettings.Remove(setting);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        [HttpGet("all-models")]
+        public async Task<ActionResult<IEnumerable<AIModel>>> GetAllAIModels()
+        {
+            // Endpoint to get all available AI models
+            return await _context.AIModels.ToListAsync();
         }
     }
 }
