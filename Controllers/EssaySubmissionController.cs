@@ -105,7 +105,8 @@ namespace SoraEssayJudge.Controllers
                 ImageUrl = $"/EssayFile/{uniqueFileName}", // 存储图片的URL
                 ColumnCount = columnCount,
                 CreatedAt = DateTime.UtcNow,
-                StudentId = null // Will be updated later
+                StudentId = null, // Will be updated later
+                Score = 0
             };
 
             _context.EssaySubmissions.Add(submission);
@@ -158,7 +159,7 @@ namespace SoraEssayJudge.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateSubmission(Guid id, [FromBody] UpdateEssaySubmissionDto updateDto)
+        public async Task<IActionResult> UpdateSubmission(Guid id, [FromForm] UpdateEssaySubmissionDto updateDto)
         {
             _logger.LogInformation("Updating submission {SubmissionId}", id);
             var submission = await _context.EssaySubmissions.FindAsync(id);
@@ -172,9 +173,9 @@ namespace SoraEssayJudge.Controllers
             {
                 submission.StudentId = updateDto.StudentId.Value;
             }
-            if (updateDto.FinalScore.HasValue)
+            if (updateDto.Score.HasValue)
             {
-                submission.Score = updateDto.FinalScore;
+                submission.Score = updateDto.Score;
             }
 
             
@@ -186,7 +187,7 @@ namespace SoraEssayJudge.Controllers
                 submission.GetType().GetProperty("ErrorMessage")?.SetValue(submission, null);
             }
 
-            if (updateDto.FinalScore.HasValue)
+            if (updateDto.Score.HasValue)
             {
                 submission.ErrorMessage = "Manual score updated.";
             }

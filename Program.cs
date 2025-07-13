@@ -8,6 +8,8 @@ using Microsoft.OpenApi.Models;
 using Microsoft.Extensions.FileProviders;
 using System.IO;
 using Serilog;
+using Microsoft.AspNetCore.HttpOverrides;
+using System.Net;
 
 // 1. Configure Serilog for bootstrap logging
 Log.Logger = new LoggerConfiguration()
@@ -103,6 +105,16 @@ try
         };
     });
 
+    // 配置转发头选项
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders =
+            ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        // 安全提示：在生产环境中，最好清除 KnownProxies 和 KnownNetworks
+        // 并明确指定您的代理服务器的 IP 地址，以防止 IP 欺骗。
+        // options.KnownProxies.Add(IPAddress.Parse("YOUR_NGINX_IP_ADDRESS"));
+    });
+
     var app = builder.Build();
     
     // 3. Add Serilog request logging middleware
@@ -114,11 +126,13 @@ try
         app.UseSwagger();
         app.UseSwaggerUI();
     }
-
+    app.UseForwardedHeaders();
     // 启用 CORS
     app.UseCors();
     app.UseAuthentication();
     app.UseAuthorization();
+
+
 
     // 确保 essayfiles 目录存在
     var essayFilesPath = Path.Combine(app.Environment.ContentRootPath, "essayfiles");

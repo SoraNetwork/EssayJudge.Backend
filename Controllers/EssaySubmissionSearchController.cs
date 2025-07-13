@@ -41,13 +41,15 @@ namespace SoraEssayJudge.Controllers
             var result = await query
                 .OrderByDescending(e => e.CreatedAt)
                 .Take(top)
-                .Select(e => new {
+                .Select(e => new
+                {
                     e.Id,
                     e.Title,
                     e.CreatedAt,
                     StudentId = e.StudentId,
                     StudentName = e.Student != null ? e.Student.Name : null,
-                    e.FinalScore
+                    e.FinalScore,
+                    e.Score
                 })
                 .ToListAsync();
             return Ok(result);

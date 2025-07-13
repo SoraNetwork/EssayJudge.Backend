@@ -226,50 +226,53 @@ namespace SoraEssayJudge.Controllers
         }
 
         [HttpPut("model-usage-settings/{id}")]
-        public async Task<IActionResult> UpdateModelUsageSetting(Guid id, [FromForm] AIModelUsageSetting setting)
+        public async Task<IActionResult> UpdateModelUsageSetting(Guid id, [FromForm] string? usageType, [FromForm] bool? isEnabled, [FromForm] Guid? aiModelId)
         {
-            if (id != setting.Id)
-            {
-                return BadRequest("ID in URL does not match ID in body.");
-            }
+            var existingSetting = await _context.AIModelUsageSettings.FirstOrDefaultAsync(s => s.Id == id);
 
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            var modelExists = await _context.AIModels.AnyAsync(m => m.Id == setting.AIModelId);
-            if (!modelExists)
-            {
-                ModelState.AddModelError(nameof(setting.AIModelId), "The specified AIModelId does not exist.");
-                return BadRequest(ModelState);
-            }
-
-            var existingSetting = await _context.AIModelUsageSettings.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
             if (existingSetting == null)
             {
-                return NotFound();
+            return NotFound();
             }
 
-            setting.UpdatedAt = DateTime.UtcNow;
-            setting.CreatedAt = existingSetting.CreatedAt; // Preserve original creation date
+            // Update properties based on form data if provided
+            if (usageType != null)
+            {
+            existingSetting.UsageType = usageType;
+            }
 
-            _context.Entry(setting).State = EntityState.Modified;
+            if (isEnabled.HasValue)
+            {
+            existingSetting.IsEnabled = isEnabled.Value;
+            }
+
+            if (aiModelId.HasValue && existingSetting.AIModelId != aiModelId.Value)
+            {
+             var modelExists = await _context.AIModels.AnyAsync(m => m.Id == aiModelId.Value);
+             if (!modelExists)
+             {
+                 ModelState.AddModelError(nameof(aiModelId), "The specified AIModelId does not exist.");
+                 return BadRequest(ModelState);
+             }
+             existingSetting.AIModelId = aiModelId.Value;
+            }
+
+            existingSetting.UpdatedAt = DateTime.UtcNow;
 
             try
             {
-                await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!_context.AIModelUsageSettings.Any(e => e.Id == id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+            if (!_context.AIModelUsageSettings.Any(e => e.Id == id))
+            {
+                return NotFound();
+            }
+            else
+            {
+                throw;
+            }
             }
 
             return NoContent();

@@ -44,7 +44,19 @@ namespace SoraEssayJudge.Controllers
 
             return Ok(classes);
         }
+        [HttpGet("{classId}")]
+        public async Task<ActionResult<Class>> GetClassById(Guid classId)
+        {
+            var classEntity = await _context.Classes
+                .FirstOrDefaultAsync(c => c.Id == classId);
 
+            if (classEntity == null)
+            {
+                return NotFound();
+            }
+
+            return Ok(classEntity);
+        }
         [HttpGet("{classId}/students")]
         public async Task<ActionResult<IEnumerable<Student>>> GetStudentsByClass(Guid classId)
         {
