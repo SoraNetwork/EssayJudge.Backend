@@ -1,4 +1,5 @@
 using System;
+using SoraEssayJudge.Models;
 
 namespace SoraEssayJudge.Dtos
 {
@@ -9,5 +10,6 @@ namespace SoraEssayJudge.Dtos
         public required string Name { get; set; }
         public Guid ClassId { get; set; }
         public DateTime CreatedAt { get; set; }
+        public Class? Class { get; set; }
     }
 }
