@@ -27,7 +27,7 @@ namespace SoraEssayJudge.Controllers
         /// <param name="top">返回前N条</param>
         /// <returns></returns>
         [HttpGet]
-        public async Task<IActionResult> Search([FromQuery] string? title, [FromQuery] int top = 10)
+        public async Task<IActionResult> Search([FromQuery] string? title, [FromQuery] bool? isError, [FromQuery] int top = 10)
         {
             var query = _context.EssaySubmissions
                 .Include(e => e.Student)
@@ -37,6 +37,11 @@ namespace SoraEssayJudge.Controllers
             {
                 query = query.Where(e => e.Title != null && e.Title.Contains(title));
             }
+
+            if(isError.HasValue)
+            {
+                query = query.Where(e => e.IsError == isError.Value);
+            }   
 
             var result = await query
                 .OrderByDescending(e => e.CreatedAt)

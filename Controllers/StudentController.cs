@@ -47,14 +47,16 @@ namespace SoraEssayJudge.Controllers
                 query = query.Where(s => s.ClassId == classId.Value);
             }
 
-            var students = await query.Select(s => new StudentDto
+            var students = await query
+            .Select(s => new StudentDto
             {
                 Id = s.Id,
                 StudentId = s.StudentId,
                 Name = s.Name,
-                ClassId = s.ClassId,
-                CreatedAt = s.CreatedAt
-            }).ToListAsync();
+                CreatedAt = s.CreatedAt,
+                Class = s.Class
+            })  
+            .ToListAsync();
 
             _logger.LogInformation("Found {StudentCount} students.", students.Count);
             return Ok(students);
