@@ -31,6 +31,7 @@ namespace SoraEssayJudge.Controllers
         {
             var query = _context.EssaySubmissions
                 .Include(e => e.Student)
+                .Include(e => e.Student.Class)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(title))
@@ -54,7 +55,8 @@ namespace SoraEssayJudge.Controllers
                     StudentId = e.StudentId,
                     StudentName = e.Student != null ? e.Student.Name : null,
                     e.FinalScore,
-                    e.Score
+                    e.Score,
+                    ClassName = e.Student != null ? e.Student.Class!.Name : null,
                 })
                 .ToListAsync();
             return Ok(result);

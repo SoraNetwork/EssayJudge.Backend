@@ -48,6 +48,7 @@ try
     builder.Services.AddScoped<RecognizeHandwritingService>();
     builder.Services.AddScoped<ProcessImageService>();
     builder.Services.AddScoped<JudgeService>();
+    builder.Services.AddScoped<IPreProcessImageService, PreProcessImageService>();
     
 
     builder.Services.AddControllers().AddJsonOptions(options =>
