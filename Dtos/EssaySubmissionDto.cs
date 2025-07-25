@@ -26,7 +26,12 @@ public class CreateEssaySubmissionDto
     public string ProcessedImageUrl { get; set; } = string.Empty;
     public int ColumnCount { get; set; }
 }
-
+public class CreateEssaySubmissionPrasedDto
+{
+    public string StudentId { get; set; } = string.Empty;
+    public Guid EssayAssignmentId { get; set; }
+    public string PrasedText { get; set; } = string.Empty;
+}
 public class CheckImageResponseDto
 {
     public bool Success { get; set; }

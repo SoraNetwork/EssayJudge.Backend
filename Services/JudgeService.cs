@@ -36,7 +36,7 @@ namespace SoraEssayJudge.Services
                 var submission = await context.EssaySubmissions
                                               .Include(s => s.EssayAssignment)
                                               .FirstOrDefaultAsync(s => s.Id == submissionId);
-                
+
                 if (submission == null)
                 {
                     _logger.LogError("Submission with ID: {SubmissionId} not found in the database.", submissionId);
@@ -56,46 +56,50 @@ namespace SoraEssayJudge.Services
                         await context.SaveChangesAsync();
                         return;
                     }
-
-                    // Fetch model settings from DB
-                    var ocrProcessingModelSetting = await context.AIModelUsageSettings
-                        .Include(s => s.AIModel)
-                        .FirstOrDefaultAsync(s => s.UsageType == "OcrProcessing" && s.IsEnabled);
-
-                    if (ocrProcessingModelSetting == null || ocrProcessingModelSetting.AIModel == null)
+                    string parsedText = submission.ParsedText;
+                    if (string.IsNullOrEmpty(parsedText))
                     {
-                        _logger.LogError("No enabled 'OcrProcessing' model configured in AIModelUsageSettings for submission ID: {SubmissionId}.", submissionId);
-                        submission.IsError = true;
-                        submission.ErrorMessage = "OCR processing model not configured.";
-                        await context.SaveChangesAsync();
-                        return;
-                    }
+                        // Fetch model settings from DB
+                        var ocrProcessingModelSetting = await context.AIModelUsageSettings
+                            .Include(s => s.AIModel)
+                            .FirstOrDefaultAsync(s => s.UsageType == "OcrProcessing" && s.IsEnabled);
 
-                    // 由 ImageUrl 计算物理路径
-                    string? imagePath = null;
-                    if (!string.IsNullOrEmpty(submission.ImageUrl))
-                    {
-                        // 假设 ImageUrl 形如 /EssayFile/xxx.jpg
-                        var fileName = submission.ImageUrl.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
-                        if (!string.IsNullOrEmpty(fileName))
+                        if (ocrProcessingModelSetting == null || ocrProcessingModelSetting.AIModel == null)
                         {
-                            var uploadsDir = System.IO.Path.Combine(_webHostEnvironment.ContentRootPath, "essayfiles");
-                            imagePath = System.IO.Path.Combine(uploadsDir, fileName);
+                            _logger.LogError("No enabled 'OcrProcessing' model configured in AIModelUsageSettings for submission ID: {SubmissionId}.", submissionId);
+                            submission.IsError = true;
+                            submission.ErrorMessage = "OCR processing model not configured.";
+                            await context.SaveChangesAsync();
+                            return;
                         }
+
+                        // 由 ImageUrl 计算物理路径
+                        string? imagePath = null;
+                        if (!string.IsNullOrEmpty(submission.ImageUrl))
+                        {
+                            // 假设 ImageUrl 形如 /EssayFile/xxx.jpg
+                            var fileName = submission.ImageUrl.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
+                            if (!string.IsNullOrEmpty(fileName))
+                            {
+                                var uploadsDir = System.IO.Path.Combine(_webHostEnvironment.ContentRootPath, "essayfiles");
+                                imagePath = System.IO.Path.Combine(uploadsDir, fileName);
+                            }
+                        }
+
+                        if (imagePath == null)
+                        {
+                            _logger.LogError("Image path could not be determined for submission ID: {SubmissionId}. ImageUrl: {ImageUrl}", submissionId, submission.ImageUrl);
+                            submission.IsError = true;
+                            submission.ErrorMessage = "Image path could not be determined.";
+                            await context.SaveChangesAsync();
+                            return;
+                        }
+
+                        _logger.LogInformation("Processing image for submission ID: {SubmissionId}, path: {ImagePath}", submissionId, imagePath);
+                        parsedText = await processImageService.ProcessImageAsync(imagePath!, submission.ColumnCount, Guid.NewGuid(), ocrProcessingModelSetting.AIModel.ModelId);
+                        submission.ParsedText = parsedText;
                     }
-                    
-                    if (imagePath == null)
-                    {
-                        _logger.LogError("Image path could not be determined for submission ID: {SubmissionId}. ImageUrl: {ImageUrl}", submissionId, submission.ImageUrl);
-                        submission.IsError = true;
-                        submission.ErrorMessage = "Image path could not be determined.";
-                        await context.SaveChangesAsync();
-                        return;
-                    }
-                    
-                    _logger.LogInformation("Processing image for submission ID: {SubmissionId}, path: {ImagePath}", submissionId, imagePath);
-                    string parsedText = await processImageService.ProcessImageAsync(imagePath!, submission.ColumnCount, Guid.NewGuid(), ocrProcessingModelSetting.AIModel.ModelId);
-                    submission.ParsedText = parsedText;
+                    parsedText = submission.ParsedText;
                     // 自动提取第一行为 Title
                     if (!string.IsNullOrWhiteSpace(parsedText))
                     {
@@ -133,7 +137,7 @@ namespace SoraEssayJudge.Services
                         _logger.LogWarning("Student not identified for submission ID: {SubmissionId}", submissionId);
                         errors.Add("Student not identified for this submission.");
                     }
-                    
+
                     _logger.LogInformation("Image processed successfully for submission ID: {SubmissionId}. Parsed text length: {ParsedTextLength}", submissionId, parsedText.Length);
 
                     // Save the OCR result to the database immediately so it can be viewed while judging is in progress.
@@ -174,52 +178,83 @@ namespace SoraEssayJudge.Services
 
                     var results = new List<SoraEssayJudge.Models.AIResult>();
                     var scores = new List<int>();
+                    // 使用 SemaphoreSlim 控制并发请求数（可选，避免瞬时高并发）
+                    var throttler = new SemaphoreSlim(initialCount: 4); // 调整并发度为4
 
-                    foreach (var model in modelsToUse)
+                    var tasks = modelsToUse.Select(async model =>
                     {
-                        _logger.LogInformation("Getting judgment from model {ModelName} for submission ID: {SubmissionId}", model, submissionId);
-                        string judgeResult = await openAIService.GetChatCompletionAsync(judgePrompt + parsedText, model);
-
-                        var scoreMatch = Regex.Match(judgeResult, @"\$\$(.*?)\$\$");
-                        var feedbackMatch = Regex.Match(judgeResult, @"##(.*?)##");
-
-                        if (!feedbackMatch.Success)
+                        await throttler.WaitAsync(); // 控制并发量
+                        try
                         {
-                            feedbackMatch = Regex.Match(judgeResult, @"#(.*?)");
+                            _logger.LogInformation("Getting judgment from model {ModelName} for submission ID: {SubmissionId}", model, submissionId);
+                            string judgeResult = await openAIService.GetChatCompletionAsync(judgePrompt + parsedText, model);
+
+                            var scoreMatch = Regex.Match(judgeResult, @"\$\$(.*?)\$\$");
+                            var feedbackMatch = Regex.Match(judgeResult, @"##(.*?)##");
+
+                            if (!feedbackMatch.Success)
+                            {
+                                feedbackMatch = Regex.Match(judgeResult, @"#(.*?)");
+                            }
+
+                            int? score = null;
+                            string feedback;
+
+                            if (scoreMatch.Success && feedbackMatch.Success && int.TryParse(scoreMatch.Groups[1].Value, out int parsedScore))
+                            {
+                                score = parsedScore;
+                                feedback = feedbackMatch.Groups[1].Value.Trim();
+                                _logger.LogInformation("Model {ModelName} provided score: {Score} for submission ID: {SubmissionId}", model, score, submissionId);
+                                return (Model: model, Score: score, Feedback: feedback, Valid: true);
+                            }
+                            else
+                            {
+                                feedback = "未提供有效输出。（不予评价）" + judgeResult;
+                                _logger.LogWarning("Model {ModelName} failed to provide valid output for submission ID: {SubmissionId}. Raw: {RawOutput}", model, submissionId, judgeResult);
+                                return (Model: model, Score: (int?)null, Feedback: feedback, Valid: false);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error processing model {ModelName} for submission ID: {SubmissionId}", model, submissionId);
+                            return (Model: model, Score: (int?)null, Feedback: $"处理时发生错误: {ex.Message}", Valid: false);
+                        }
+                        finally
+                        {
+                            throttler.Release();
+                        }
+                    }).ToList();
+
+                    // 并行执行所有请求并等待完成
+                    var modelResults = await Task.WhenAll(tasks);
+
+                    // 按原始顺序处理结果并串行保存
+                    foreach (var result in modelResults)
+                    {
+                        if (result.Valid && result.Score.HasValue)
+                        {
+                            scores.Add(result.Score.Value);
                         }
 
-                        int? score = null;
-                        string feedback;
-
-                        if (scoreMatch.Success && feedbackMatch.Success && int.TryParse(scoreMatch.Groups[1].Value, out int parsedScore))
+                        var aiResult = new SoraEssayJudge.Models.AIResult
                         {
-                            score = parsedScore;
-                            scores.Add(parsedScore);
-                            feedback = feedbackMatch.Groups[1].Value.Trim();
-                            _logger.LogInformation("Model {ModelName} provided score: {Score} for submission ID: {SubmissionId}", model, score, submissionId);
-                        }
-                        else
-                        {
-                            feedback = "未提供有效输出。（不予评价）" + judgeResult;
-                            _logger.LogWarning("Model {ModelName} failed to provide a valid score or feedback for submission ID: {SubmissionId}. Raw output: {RawOutput}", model, submissionId, judgeResult);
-                        }
+                            ModelName = result.Model,
+                            Feedback = result.Feedback,
+                            Score = result.Score
+                        };
+                        results.Add(aiResult);
 
-                        results.Add(new SoraEssayJudge.Models.AIResult
-                        {
-                            ModelName = model,
-                            Feedback = feedback,
-                            Score = score
-                        });
-
-                        // Update and save after each model's result
-                        submission.AIResults = results.ToList(); // Create a new list to ensure EF Core tracks changes
+                        // 更新并保存当前结果（保持串行保存避免EF Core并发冲突）
+                        submission.AIResults = results.ToList();
                         await context.SaveChangesAsync();
-                        _logger.LogInformation("Saved intermediate results for submission ID: {SubmissionId} after processing model {ModelName}", submissionId, model);
+
+                        _logger.LogInformation("Saved results for model {ModelName} on submission ID: {SubmissionId}",
+                            result.Model, submissionId);
                     }
 
                     if (scores.Count > 1)
                     {
-                        double average = Math.Round( scores.Average() , 2 );
+                        double average = Math.Round(scores.Average(), 2);
                         double variance = scores.Sum(s => Math.Pow(s - average, 2)) / scores.Count;
                         submission.FinalScore = average;
                         _logger.LogInformation("Calculated average score {AverageScore} with variance {Variance} for submission ID: {SubmissionId}", average, variance, submissionId);
@@ -256,12 +291,13 @@ namespace SoraEssayJudge.Services
                         submission.IsError = false;
                         submission.ErrorMessage = null;
                     }
+                    await context.SaveChangesAsync();
 
                     // Always generate the final report, even if there are errors.
                     // The report will include any available data and reflect the errors.
                     _logger.LogInformation("Generating final report for submission ID: {SubmissionId}", submissionId);
                     var reportPrompt = BuildReportPrompt(submission, parsedText);
-                    
+
                     var reportingModelSetting = await context.AIModelUsageSettings
                         .Include(s => s.AIModel)
                         .FirstOrDefaultAsync(s => s.UsageType == "Reporting" && s.IsEnabled);
@@ -326,11 +362,11 @@ namespace SoraEssayJudge.Services
             reportBuilder.AppendLine("4. 报告应语言流畅、专业、富有启发性。");
             reportBuilder.AppendLine("5. 最重要：请勿输出其他的提示内容，仅包含一份完整报告。");
 
-            reportBuilder.AppendLine("\n不要完全按照模板，需要个性化评测报告 --- 报告格式要求 --- "); 
+            reportBuilder.AppendLine("\n不需要完全按照模板，需要个性化评测报告 --- 报告格式要求 --- ");
             reportBuilder.AppendLine("# 作文批改分析报告");
             reportBuilder.AppendLine("| 项目 | 内容 |");
             reportBuilder.AppendLine("| :--- | :--- |");
-            reportBuilder.AppendLine("| **作文题目** | [在此处填写完整的作文题目] |");
+            reportBuilder.AppendLine("| **作文标题** | [在此处填写完整的作文标题] |");
             reportBuilder.AppendLine($"| **预估分数** | **{submission.FinalScore:F0} / {assignment.TotalScore} 分** |"); // Use actual score and total score
             reportBuilder.AppendLine("| **等级** | `[一类卷 / 二类卷上 / 二类卷下 / 三类卷等]` |");
             reportBuilder.AppendLine("### 综合评价");
