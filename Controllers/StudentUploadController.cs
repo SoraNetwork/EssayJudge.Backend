@@ -158,6 +158,7 @@ public class StudentUploadController : ControllerBase
             CreatedAt = DateTime.UtcNow,
             IsError = false,
             ParsedText = dto.PrasedText,
+            Score = 0
         };
 
         _context.EssaySubmissions.Add(submission);
@@ -206,7 +207,8 @@ public class StudentUploadController : ControllerBase
             EssayAssignment = assignment,
             ImageUrl = dto.ProcessedImageUrl,
             CreatedAt = DateTime.UtcNow,
-            IsError = false
+            IsError = false,
+            Score = 0
         };
 
         _context.EssaySubmissions.Add(submission);
