@@ -81,6 +81,8 @@ namespace SoraEssayJudge.Controllers
                 TitleContext = a.TitleContext,
                 CreatedAt = a.CreatedAt,
                 Description = a.Description,
+                BaseScore = a.BaseScore,
+                ScoringCriteria = a.ScoringCriteria
             }).ToListAsync();
 
             _logger.LogInformation("Found {AssignmentCount} assignments.", assignments.Count);
