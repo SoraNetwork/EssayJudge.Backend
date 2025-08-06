@@ -43,7 +43,7 @@ public class StudentUploadController : ControllerBase
         }
 
         var submission = (await _context.EssaySubmissions
-            .Where(s => s.Id.Contains(shortId))
+            .Where(s => s.Id.ToString().Contains(shortId))
             .Include(s => s.Student)
             .Include(s => s.EssayAssignment)
             .Include(s => s.AIResults)
