@@ -21,16 +21,14 @@ namespace SoraEssayJudge.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ApiKey>>> GetApiKeys()
         {
-            // Include AIModels when fetching ApiKeys
             return await _context.ApiKeys
-                .Include(k => k.AIModels) // Add Include here
+                .Include(k => k.AIModels)
                 .ToListAsync();
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<ApiKey>> GetApiKey(Guid id)
         {
-            // Include AIModels when fetching a single ApiKey
             var apiKey = await _context.ApiKeys
                 .Include(k => k.AIModels)
                 .FirstOrDefaultAsync(k => k.Id == id);
@@ -84,6 +82,7 @@ namespace SoraEssayJudge.Controllers
 
             var apiKeyToUpdate = await _context.ApiKeys
                 .Include(k => k.AIModels)
+                .ThenInclude(m => m.UsageSettings)
                 .FirstOrDefaultAsync(k => k.Id == id);
 
             if (apiKeyToUpdate == null)
@@ -91,7 +90,7 @@ namespace SoraEssayJudge.Controllers
                 return NotFound();
             }
 
-            // Update scalar properties from the provided apiKey object
+            // Update scalar properties
             apiKeyToUpdate.ServiceType = apiKey.ServiceType;
             apiKeyToUpdate.Key = apiKey.Key;
             apiKeyToUpdate.Secret = apiKey.Secret;
@@ -100,7 +99,7 @@ namespace SoraEssayJudge.Controllers
             apiKeyToUpdate.IsEnabled = apiKey.IsEnabled;
             apiKeyToUpdate.UpdatedAt = DateTime.UtcNow;
 
-            // Handle AIModels
+            // Sync AIModels
             var existingModels = apiKeyToUpdate.AIModels?.ToList() ?? new List<AIModel>();
             var newModelIds = modelIds?.Distinct().ToList() ?? new List<string>();
 
@@ -111,15 +110,12 @@ namespace SoraEssayJudge.Controllers
 
             foreach (var model in modelsToRemove)
             {
-                var isUsed = await _context.AIModelUsageSettings.AnyAsync(s => s.AIModelId == model.Id);
-                if (isUsed)
+                // Remove associated usage settings first
+                if (model.UsageSettings != null && model.UsageSettings.Any())
                 {
-                    return BadRequest($"Cannot remove model '{model.ModelId}' because it is currently in use in a usage setting. Please remove the usage setting first.");
+                    _context.AIModelUsageSettings.RemoveRange(model.UsageSettings);
                 }
-            }
-            if (modelsToRemove.Any())
-            {
-                _context.AIModels.RemoveRange(modelsToRemove);
+                _context.AIModels.Remove(model);
             }
 
             // Models to add
@@ -172,10 +168,26 @@ namespace SoraEssayJudge.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteApiKey(Guid id)
         {
-            var apiKey = await _context.ApiKeys.FindAsync(id);
+            var apiKey = await _context.ApiKeys
+                .Include(k => k.AIModels)
+                .ThenInclude(m => m.UsageSettings)
+                .FirstOrDefaultAsync(k => k.Id == id);
+
             if (apiKey == null)
             {
                 return NotFound();
+            }
+
+            if (apiKey.AIModels != null)
+            {
+                foreach (var model in apiKey.AIModels)
+                {
+                    if (model.UsageSettings != null && model.UsageSettings.Any())
+                    {
+                        _context.AIModelUsageSettings.RemoveRange(model.UsageSettings);
+                    }
+                }
+                _context.AIModels.RemoveRange(apiKey.AIModels);
             }
 
             _context.ApiKeys.Remove(apiKey);
