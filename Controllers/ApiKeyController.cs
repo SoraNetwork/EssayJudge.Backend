@@ -132,6 +132,8 @@ namespace SoraEssayJudge.Controllers
                 apiKeyToUpdate.AIModels.Add(new AIModel { ModelId = modelId, ServiceType = apiKeyToUpdate.ServiceType });
             }
 
+            _context.Entry(apiKeyToUpdate).State = EntityState.Modified;
+
             try
             {
                 await _context.SaveChangesAsync();

@@ -158,6 +158,46 @@ namespace SoraEssayJudge.Controllers
             return Ok(submission);
         }
 
+        [HttpPost("{id}/rejudge")]
+        public async Task<IActionResult> Rejudge(Guid id)
+        {
+            _logger.LogInformation("Received request to re-judge submission ID: {SubmissionId}", id);
+            var submission = await _context.EssaySubmissions
+                                           .Include(s => s.AIResults)
+                                           .FirstOrDefaultAsync(s => s.Id == id);
+
+            if (submission == null)
+            {
+                _logger.LogWarning("Re-judge failed: Submission with ID {SubmissionId} not found.", id);
+                return NotFound();
+            }
+
+            if (string.IsNullOrEmpty(submission.ParsedText))
+            {
+                _logger.LogWarning("Re-judge failed: Submission with ID {SubmissionId} has no ParsedText. Cannot re-judge without OCR text.", id);
+                return BadRequest("This submission has no parsed text. It cannot be re-judged.");
+            }
+
+            // Clear previous results
+            _logger.LogInformation("Clearing previous results for submission ID: {SubmissionId}", id);
+            if (submission.AIResults != null && submission.AIResults.Any())
+            {
+                _context.AIResults.RemoveRange(submission.AIResults);
+            }
+            submission.FinalScore = null;
+            submission.JudgeResult = null;
+            submission.IsError = false;
+            submission.ErrorMessage = "Re-judging in progress...";
+
+            await _context.SaveChangesAsync();
+
+            // Start the judging process again in the background
+            _logger.LogInformation("Starting background re-judging process for submission ID: {SubmissionId}", id);
+            _ = _judgeService.JudgeEssayAsync(submission.Id);
+
+            return Ok(new { message = "Re-judging process started successfully." });
+        }
+
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateSubmission(Guid id, [FromForm] UpdateEssaySubmissionDto updateDto)
         {

@@ -32,6 +32,34 @@ public class StudentUploadController : ControllerBase
         Directory.CreateDirectory(_uploadPath);
     }
 
+    [HttpGet("query/{shortId}")]
+    public async Task<ActionResult<EssaySubmission>> GetSubmissionByShortId(string shortId)
+    {
+        _logger.LogInformation("Querying for submission with short ID: {ShortId}", shortId);
+        if (string.IsNullOrEmpty(shortId) || shortId.Length != 8)
+        {
+            _logger.LogWarning("Invalid shortId provided: {ShortId}. It must be 8 characters long.", shortId);
+            return BadRequest(new { Message = "无效的查询ID。ID必须是8个字符。" });
+        }
+
+        var submission = (await _context.EssaySubmissions
+            .Where(s => s.Id.Contains(shortId))
+            .Include(s => s.Student)
+            .Include(s => s.EssayAssignment)
+            .Include(s => s.AIResults)
+            .ToListAsync())
+            .FirstOrDefault();
+
+        if (submission == null)
+        {
+            _logger.LogWarning("No submission found for short ID: {ShortId}", shortId);
+            return NotFound(new { Message = "找不到对应的提交记录。" });
+        }
+
+        _logger.LogInformation("Found submission with ID {SubmissionId} for short ID: {ShortId}", submission.Id, shortId);
+        return Ok(submission);
+    }
+
     [HttpGet("studentinfo")]
     public async Task<ActionResult<IEnumerable<object>>> GetStudentInfo()
     {
