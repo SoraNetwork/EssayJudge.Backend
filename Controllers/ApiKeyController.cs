@@ -73,13 +73,15 @@ namespace SoraEssayJudge.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutApiKey(Guid id, [FromForm] ApiKey apiKey, [FromForm] List<string>? modelIds)
+        public async Task<IActionResult> PutApiKey(Guid id, 
+            [FromForm] string serviceType, 
+            [FromForm] string key, 
+            [FromForm] bool isEnabled,
+            [FromForm] string? secret, 
+            [FromForm] string? endpoint, 
+            [FromForm] string? description, 
+            [FromForm] List<string>? modelIds)
         {
-            if (id != apiKey.Id)
-            {
-                return BadRequest();
-            }
-
             var apiKeyToUpdate = await _context.ApiKeys
                 .Include(k => k.AIModels)
                 .ThenInclude(m => m.UsageSettings)
@@ -90,13 +92,13 @@ namespace SoraEssayJudge.Controllers
                 return NotFound();
             }
 
-            // Update scalar properties
-            apiKeyToUpdate.ServiceType = apiKey.ServiceType;
-            apiKeyToUpdate.Key = apiKey.Key;
-            apiKeyToUpdate.Secret = apiKey.Secret;
-            apiKeyToUpdate.Endpoint = apiKey.Endpoint;
-            apiKeyToUpdate.Description = apiKey.Description;
-            apiKeyToUpdate.IsEnabled = apiKey.IsEnabled;
+            // Update scalar properties from the provided parameters
+            apiKeyToUpdate.ServiceType = serviceType;
+            apiKeyToUpdate.Key = key;
+            apiKeyToUpdate.Secret = secret;
+            apiKeyToUpdate.Endpoint = endpoint;
+            apiKeyToUpdate.Description = description;
+            apiKeyToUpdate.IsEnabled = isEnabled;
             apiKeyToUpdate.UpdatedAt = DateTime.UtcNow;
 
             // Sync AIModels
