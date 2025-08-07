@@ -158,7 +158,7 @@ namespace SoraEssayJudge.Controllers
             return Ok(submission);
         }
 
-        [HttpPost("{id}/rejudge")]
+        [HttpPatch("{id}/rejudge")]
         public async Task<IActionResult> Rejudge(Guid id)
         {
             _logger.LogInformation("Received request to re-judge submission ID: {SubmissionId}", id);

@@ -42,6 +42,7 @@ public class StudentUploadController : ControllerBase
             return BadRequest(new { Message = "无效的查询ID。ID必须是8个字符。" });
         }
 
+
         // Using raw SQL for SQLite to match the last 8 characters of the GUID (stored as TEXT).
         var submission = await _context.EssaySubmissions
             .FromSql($"SELECT * FROM EssaySubmissions WHERE SUBSTR(Id, -8) = {shortId}")
