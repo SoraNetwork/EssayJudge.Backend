@@ -194,7 +194,7 @@ namespace SoraEssayJudge.Services
 
                             if (!feedbackMatch.Success)
                             {
-                                feedbackMatch = Regex.Match(judgeResult, @"#(.*?)");
+                                feedbackMatch = Regex.Match(judgeResult, @"##(.*?)");
                             }
 
                             int? score = null;
@@ -264,6 +264,18 @@ namespace SoraEssayJudge.Services
                             var errorMessage = $"Score variance ({variance:F2}) exceeds threshold of 10. Manual review required.";
                             _logger.LogWarning("High score variance for submission ID: {SubmissionId}. {ErrorMessage}", submissionId, errorMessage);
                             errors.Add(errorMessage);
+                            var scorelist = new List<int>(scores);
+                            for(int i=0 ; i<scorelist.Count ; i++ )
+                            {
+                                if (scorelist[i] < average - 6 || scorelist[i] > average + 6)
+                                {
+                                    _logger.LogWarning("Score {Score} is significantly different from average {AverageScore} for submission ID: {SubmissionId}", scorelist[i], average, submissionId);
+                                    errors.Add($"Score {scorelist[i]} deviates significantly from average {average}. Manual review recommended.");
+                                    scores.Remove(scorelist[i]);
+                                }
+                            }
+                            average = Math.Round(scores.Average(), 2);
+                            submission.FinalScore = average;    
                         }
                     }
                     else if (scores.Count == 1)

@@ -24,10 +24,10 @@ namespace SoraEssayJudge.Controllers
         /// 按标题模糊查询作文，返回作文、学生姓名/ID，支持日期倒序和数量限制
         /// </summary>
         /// <param name="title">标题关键字</param>
-        /// <param name="top">返回前N条</param>
+        /// <param name="top">返回前N条（已弃用）</param>
         /// <returns></returns>
         [HttpGet]
-        public async Task<IActionResult> Search([FromQuery]string? assignmentId,[FromQuery] string? title, [FromQuery] bool? isError, [FromQuery] int top = 10)
+        public async Task<IActionResult> Search([FromQuery]string? assignmentId,[FromQuery] string? title, [FromQuery] bool? isError)
         {
             var query = _context.EssaySubmissions
                 .Include(e => e.Student)
@@ -51,7 +51,6 @@ namespace SoraEssayJudge.Controllers
 
             var result = await query
                 .OrderByDescending(e => e.CreatedAt)
-                .Take(top)
                 .Select(e => new
                 {
                     e.Id,
