@@ -60,6 +60,8 @@ namespace SoraEssayJudge.Controllers
                     StudentName = e.Student != null ? e.Student.Name : null,
                     e.FinalScore,
                     e.Score,
+                    e.IsError,
+                    IsPrased = !string.IsNullOrEmpty(e.ParsedText),
                     ClassName = e.Student != null ? e.Student.Class!.Name : null,
                 })
                 .ToListAsync();
