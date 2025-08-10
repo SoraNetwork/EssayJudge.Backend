@@ -155,6 +155,9 @@ namespace SoraEssayJudge.Services
                     judgePromptBuilder.Append("请辩证地评判。优点和缺点适当指出。如有题目，请注意是否偏题。");
                     judgePromptBuilder.Append($"基准分{assignment.BaseScore}分，在此基础上加分和扣分。");
                     judgePromptBuilder.Append("请给出评分和简单一句话的评语（评分原因，不暴露基准分）。");
+                    judgePromptBuilder.Append("重要提示：评分应符合正态分布，即大部分学生的作文分数应接近平均分，只有少数优秀或较差的作文会有较高或较低的分数。");
+                    judgePromptBuilder.Append("请注意，评分应考虑到作文的整体质量，而不仅仅是某一方面的表现。");
+                    judgePromptBuilder.Append("请注意，谨慎打出一类文和四类文的分数。");                                                                           
                     judgePromptBuilder.Append("**最重要提醒** 请使用$$包裹分数输出，用##包裹评语，不可其他内容。请注意务必完整使用对应标记符包裹输出。");
                     judgePromptBuilder.Append("返回示例：$$50$$ ##示例评语## \n");
                     string judgePrompt = judgePromptBuilder.ToString();
