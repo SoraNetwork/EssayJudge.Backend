@@ -17,7 +17,7 @@ namespace SoraEssayJudge.Controllers
         {
             _context = context;
         }
-        
+
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ApiKey>>> GetApiKeys()
         {
@@ -65,7 +65,7 @@ namespace SoraEssayJudge.Controllers
                     apiKey.AIModels.Add(new AIModel { ModelId = modelId, ServiceType = apiKey.ServiceType });
                 }
             }
-        
+
             _context.ApiKeys.Add(apiKey);
             await _context.SaveChangesAsync();
 
@@ -73,18 +73,16 @@ namespace SoraEssayJudge.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutApiKey(Guid id, 
-            [FromForm] string serviceType, 
-            [FromForm] string key, 
+        public async Task<IActionResult> PutApiKey(Guid id,
+            [FromForm] string serviceType,
+            [FromForm] string key,
             [FromForm] bool isEnabled,
-            [FromForm] string? secret, 
-            [FromForm] string? endpoint, 
-            [FromForm] string? description, 
+            [FromForm] string? secret,
+            [FromForm] string? endpoint,
+            [FromForm] string? description,
             [FromForm] List<string>? modelIds)
         {
             var apiKeyToUpdate = await _context.ApiKeys
-                .Include(k => k.AIModels)
-                .ThenInclude(m => m.UsageSettings)
                 .FirstOrDefaultAsync(k => k.Id == id);
 
             if (apiKeyToUpdate == null)
@@ -92,7 +90,7 @@ namespace SoraEssayJudge.Controllers
                 return NotFound();
             }
 
-            // Update scalar properties from the provided parameters
+            // 更新标量属性
             apiKeyToUpdate.ServiceType = serviceType;
             apiKeyToUpdate.Key = key;
             apiKeyToUpdate.Secret = secret;
@@ -101,38 +99,8 @@ namespace SoraEssayJudge.Controllers
             apiKeyToUpdate.IsEnabled = isEnabled;
             apiKeyToUpdate.UpdatedAt = DateTime.UtcNow;
 
-            // Sync AIModels
-            var existingModels = apiKeyToUpdate.AIModels?.ToList() ?? new List<AIModel>();
-            var newModelIds = modelIds?.Distinct().ToList() ?? new List<string>();
-
-            // Models to remove
-            var modelsToRemove = existingModels
-                .Where(m => !newModelIds.Contains(m.ModelId))
-                .ToList();
-
-            foreach (var model in modelsToRemove)
-            {
-                // Remove associated usage settings first
-                if (model.UsageSettings != null && model.UsageSettings.Any())
-                {
-                    _context.AIModelUsageSettings.RemoveRange(model.UsageSettings);
-                }
-                _context.AIModels.Remove(model);
-            }
-
-            // Models to add
-            var existingModelIds = existingModels.Select(m => m.ModelId).ToList();
-            var modelIdsToAdd = newModelIds
-                .Where(modelId => !existingModelIds.Contains(modelId))
-                .ToList();
-
-            foreach (var modelId in modelIdsToAdd)
-            {
-                apiKeyToUpdate.AIModels ??= new List<AIModel>();
-                apiKeyToUpdate.AIModels.Add(new AIModel { ModelId = modelId, ServiceType = apiKeyToUpdate.ServiceType });
-            }
-
-            _context.Entry(apiKeyToUpdate).State = EntityState.Modified;
+            // 使用显式的数据库操作来处理 AIModels
+            await SyncAIModelsExplicitly(id, modelIds, serviceType);
 
             try
             {
@@ -151,6 +119,51 @@ namespace SoraEssayJudge.Controllers
             }
 
             return NoContent();
+        }
+
+        private async Task SyncAIModelsExplicitly(Guid apiKeyId, List<string>? modelIds, string serviceType)
+        {
+            var newModelIds = modelIds?.Distinct().ToList() ?? new List<string>();
+
+            // 获取当前存在的模型
+            var existingModels = await _context.AIModels
+                .Include(m => m.UsageSettings)
+                .Where(m => m.ApiKeyId == apiKeyId)
+                .ToListAsync();
+
+            var existingModelIds = existingModels.Select(m => m.ModelId).ToList();
+
+            // 删除不再需要的模型
+            var modelsToDelete = existingModels
+                .Where(m => !newModelIds.Contains(m.ModelId))
+                .ToList();
+
+            foreach (var model in modelsToDelete)
+            {
+                // 先删除使用设置
+                if (model.UsageSettings != null && model.UsageSettings.Any())
+                {
+                    _context.AIModelUsageSettings.RemoveRange(model.UsageSettings);
+                }
+                _context.AIModels.Remove(model);
+            }
+
+            // 添加新的模型
+            var modelIdsToAdd = newModelIds
+                .Where(modelId => !existingModelIds.Contains(modelId))
+                .ToList();
+
+            foreach (var modelId in modelIdsToAdd)
+            {
+                var newModel = new AIModel
+                {
+                    ModelId = modelId,
+                    ServiceType = serviceType,
+                    ApiKeyId = apiKeyId
+                };
+
+                _context.AIModels.Add(newModel);
+            }
         }
 
         [HttpPatch("{id}/toggle")]
@@ -248,47 +261,47 @@ namespace SoraEssayJudge.Controllers
 
             if (existingSetting == null)
             {
-            return NotFound();
+                return NotFound();
             }
 
             // Update properties based on form data if provided
             if (usageType != null)
             {
-            existingSetting.UsageType = usageType;
+                existingSetting.UsageType = usageType;
             }
 
             if (isEnabled.HasValue)
             {
-            existingSetting.IsEnabled = isEnabled.Value;
+                existingSetting.IsEnabled = isEnabled.Value;
             }
 
             if (aiModelId.HasValue && existingSetting.AIModelId != aiModelId.Value)
             {
-             var modelExists = await _context.AIModels.AnyAsync(m => m.Id == aiModelId.Value);
-             if (!modelExists)
-             {
-                 ModelState.AddModelError(nameof(aiModelId), "The specified AIModelId does not exist.");
-                 return BadRequest(ModelState);
-             }
-             existingSetting.AIModelId = aiModelId.Value;
+                var modelExists = await _context.AIModels.AnyAsync(m => m.Id == aiModelId.Value);
+                if (!modelExists)
+                {
+                    ModelState.AddModelError(nameof(aiModelId), "The specified AIModelId does not exist.");
+                    return BadRequest(ModelState);
+                }
+                existingSetting.AIModelId = aiModelId.Value;
             }
 
             existingSetting.UpdatedAt = DateTime.UtcNow;
 
             try
             {
-            await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
-            if (!_context.AIModelUsageSettings.Any(e => e.Id == id))
-            {
-                return NotFound();
-            }
-            else
-            {
-                throw;
-            }
+                if (!_context.AIModelUsageSettings.Any(e => e.Id == id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
             }
 
             return NoContent();
