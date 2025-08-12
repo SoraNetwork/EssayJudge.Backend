@@ -66,6 +66,16 @@ namespace SoraEssayJudge.Controllers
         public async Task<IActionResult> Post([FromForm] string name, [FromForm] string studentId, [FromForm] Guid classId)
         {
             _logger.LogInformation("Creating a new student with name: {StudentName}, studentId: {StudentId}, classId: {ClassId}", name, studentId, classId);
+
+            var existingStudent = await _context.Students.FirstOrDefaultAsync(s => s.StudentId == studentId 
+                                                                                  || s.Name == name);
+
+            if (existingStudent != null)
+            {
+                _logger.LogWarning("Student with name: {StudentName} or studentId: {StudentId} already exists.", name, studentId);
+                return BadRequest("A student with the same name or student ID already exists.");
+            }
+            
             var student = new Student
             {
                 Id = Guid.NewGuid(),
