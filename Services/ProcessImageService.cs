@@ -29,8 +29,8 @@ namespace SoraEssayJudge.Services
                     var rect = new Rectangle(i * columnWidth, 0, columnWidth, image.Height);
                     using (Image columnImage = image.Clone(ctx => ctx.Crop(rect)))
                     {
-                        string tempPath = Path.Combine(Path.GetTempPath(), $"{id}_column_{i}.png");
-                        columnImage.Save(tempPath);
+                        string tempPath = Path.Combine(Path.GetTempPath(), $"{id}_column_{i}.webp");
+                        columnImage.SaveAsWebp(tempPath);
 
                         string result = await _recognizeHandwritingService.RecognizeAsync(tempPath);
                         string text = await _recognizeHandwritingService.ParseHandwritingResult(result);

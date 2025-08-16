@@ -10,6 +10,10 @@ using System.IO;
 using Serilog;
 using Microsoft.AspNetCore.HttpOverrides;
 using System.Net;
+using SoraEssayJudge.Models;
+
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.Http.Features;
 
 // 1. Configure Serilog for bootstrap logging
 Log.Logger = new LoggerConfiguration()
@@ -21,6 +25,16 @@ Log.Information("Starting up");
 try
 {
     var builder = WebApplication.CreateBuilder(args);
+
+    // Increase upload size limit
+    builder.Services.Configure<KestrelServerOptions>(options =>
+    {
+        options.Limits.MaxRequestBodySize = 209715200; // 200 MB
+    });
+    builder.Services.Configure<FormOptions>(options =>
+    {
+        options.MultipartBodyLengthLimit = 209715200; // 200 MB
+    });
 
     // 2. Add full Serilog support
     builder.Host.UseSerilog((context, services, configuration) => configuration
@@ -49,6 +63,11 @@ try
     builder.Services.AddScoped<ProcessImageService>();
     builder.Services.AddScoped<JudgeService>();
     builder.Services.AddScoped<IPreProcessImageService, PreProcessImageService>();
+    builder.Services.AddScoped<IImageStitchingService, ImageStitchingService>();
+
+    builder.Services.Configure<DingTalkConfiguration>(builder.Configuration.GetSection("DingTalk"));
+    builder.Services.AddMemoryCache();
+    builder.Services.AddHttpClient<IDingTalkService, DingTalkService>();
     
 
     builder.Services.AddControllers().AddJsonOptions(options =>

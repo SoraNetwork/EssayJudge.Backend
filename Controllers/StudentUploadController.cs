@@ -4,6 +4,8 @@ using SoraEssayJudge.Data;
 using SoraEssayJudge.Dtos;
 using SoraEssayJudge.Services;
 using SoraEssayJudge.Models;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Webp;
 
 namespace SoraEssayJudge.Controllers;
 
@@ -15,6 +17,7 @@ public class StudentUploadController : ControllerBase
     private readonly ILogger<StudentUploadController> _logger;
     private readonly JudgeService _judge;
     private readonly IPreProcessImageService _preProcessImageService;
+    private readonly IImageStitchingService _imageStitchingService;
     private readonly string _uploadPath;
 
     public StudentUploadController(
@@ -22,12 +25,14 @@ public class StudentUploadController : ControllerBase
         EssayContext context, 
         ILogger<StudentUploadController> logger,
         IPreProcessImageService preProcessImageService,
+        IImageStitchingService imageStitchingService,
         IConfiguration configuration)
     {
         _judge = judge;
         _context = context;
         _logger = logger;
         _preProcessImageService = preProcessImageService;
+        _imageStitchingService = imageStitchingService;
         _uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "essayfiles");
         Directory.CreateDirectory(_uploadPath);
     }
@@ -128,13 +133,18 @@ public class StudentUploadController : ControllerBase
 
         try
         {
-            // 保存原始图片
-            string originalFileName = $"{Guid.NewGuid()}_original{Path.GetExtension(file.FileName)}";
+            // 保存并压缩为WebP
+            string originalFileName = $"{Guid.NewGuid()}_original.webp";
             string originalFilePath = Path.Combine(_uploadPath, originalFileName);
 
-            using (var stream = new FileStream(originalFilePath, FileMode.Create))
+            using (var stream = file.OpenReadStream())
+            using (var image = await Image.LoadAsync(stream))
             {
-                await file.CopyToAsync(stream);
+                var encoder = new WebpEncoder
+                {
+                    Quality = 80 // 调整压缩质量
+                };
+                await image.SaveAsync(originalFilePath, encoder);
             }
 
             // 处理图片
@@ -249,5 +259,69 @@ public class StudentUploadController : ControllerBase
         {
             Id = submission.Id,
         });
+    }
+
+    [HttpPost("checkimg/columns")]
+    public async Task<ActionResult<CheckImageResponseDto>> CheckImageColumns(IFormFileCollection files)
+    {
+        _logger.LogInformation("Received request for CheckImageColumns with {FileCount} files.", files.Count);
+
+        if (files == null || files.Count == 0)
+        {
+            _logger.LogWarning("No files uploaded, returning 400 Bad Request.");
+            return BadRequest(new { Message = "没有上传文件" });
+        }
+
+        foreach (var file in files)
+        {
+            if (!file.ContentType.StartsWith("image/"))
+            {
+                _logger.LogWarning("Invalid file type detected: {ContentType}. Returning 400 Bad Request.", file.ContentType);
+                return BadRequest(new { Message = $"只接受图片文件，收到了不支持的类型: {file.ContentType}" });
+            }
+            _logger.LogInformation("File received: {FileName}, ContentType: {ContentType}, Size: {Length} bytes.", file.FileName, file.ContentType, file.Length);
+        }
+
+        try
+        {
+            var imageStreams = new List<Stream>();
+            foreach (var file in files)
+            {
+                var memoryStream = new MemoryStream();
+                await file.CopyToAsync(memoryStream);
+                memoryStream.Position = 0;
+                imageStreams.Add(memoryStream);
+            }
+
+            _logger.LogInformation("All files copied to memory streams. Starting image stitching...");
+            // 1. Stitch images together
+            string stitchedImageName = await _imageStitchingService.StitchImagesAsync(imageStreams, _uploadPath);
+            string stitchedImagePath = Path.Combine(_uploadPath, stitchedImageName);
+            _logger.LogInformation("Image stitching complete. Stitched image saved as: {StitchedImageName}", stitchedImageName);
+
+            _logger.LogInformation("Starting post-processing for the stitched image...");
+            // 2. Process the stitched image (same logic as checkimg)
+            string processedImageName = await _preProcessImageService.ProcessImageAsync(stitchedImagePath);
+            _logger.LogInformation("Post-processing complete. Final image name: {ProcessedImageName}", processedImageName);
+
+
+            // Clean up streams
+            foreach (var stream in imageStreams)
+            {
+                stream.Dispose();
+            }
+
+            return Ok(new CheckImageResponseDto 
+            { 
+                Success = true,
+                ProcessedImageUrl = "/essayfiles/" + processedImageName,
+                Message = "图片拼接和处理成功"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred during the multi-image processing workflow.");
+            return BadRequest(new { Message = "图片处理失败: " + ex.Message });
+        }
     }
 }

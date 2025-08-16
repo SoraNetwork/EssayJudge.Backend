@@ -40,13 +40,14 @@ public class PreProcessImageService : IPreProcessImageService
                 throw new InvalidOperationException("图片处理失败");
             }
 
-            // 生成新的文件名，保持原始扩展名
-            string extension = Path.GetExtension(imagePath);
-            string fileName = $"{Guid.NewGuid()}{extension}";
+            // 生成新的文件名，固定为.webp扩展名
+            string fileName = $"{Guid.NewGuid()}.webp";
             string outputPath = Path.Combine(_processedImagePath, fileName);
 
-            await Task.Run(() => Cv2.ImWrite(outputPath, result));
-            _logger.LogInformation("图片处理成功，保存至: {Path}", outputPath);
+            // 设置WebP编码参数，质量为90
+            var parameters = new ImageEncodingParam(ImwriteFlags.WebPQuality, 90);
+            await Task.Run(() => Cv2.ImWrite(outputPath, result, parameters));
+            _logger.LogInformation("图片处理成功，压缩为WebP并保存至: {Path}", outputPath);
 
             return fileName;
         }
