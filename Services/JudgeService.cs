@@ -144,22 +144,23 @@ namespace SoraEssayJudge.Services
                     await context.SaveChangesAsync();
 
                     var judgePromptBuilder = new System.Text.StringBuilder();
-                    judgePromptBuilder.Append("system: 你是一个作文评分系统。");
+                    judgePromptBuilder.Append("system:假定你是一个高中语文教师，正在参与高考语文作文的批阅。");
                     judgePromptBuilder.Append($"请根据以下作文内容进行评分，满分{{ {assignment.TotalScore} }}分。");
-                    judgePromptBuilder.Append($"该作文等级为{assignment.Grade}，题目背景为“{assignment.TitleContext ?? "暂不知"}”。");
+                    judgePromptBuilder.Append($"该作文年级为{assignment.Grade}，题目背景为“{assignment.TitleContext ?? "暂不知"}”。");
+                    judgePromptBuilder.Append("其中可能存在错别字，你需要适当扣分（有可能存在OCR识别问题，扣分不超过3分）。");
+                    judgePromptBuilder.Append("请辩证地评判。优点和缺点适当指出。如有题目，请注意是否偏题。");
+                    judgePromptBuilder.Append($"基准分{assignment.BaseScore}分，在此基础上加分和扣分。");
+                    judgePromptBuilder.Append("请给出评分和简单一句话的评语（评分原因，不暴露基准分）。");
+                    judgePromptBuilder.Append("重要提示：评分应符合正态分布，即大部分学生的作文分数应接近基准分，只有少数优秀或较差的作文会有较高或较低的分数。");
+                    judgePromptBuilder.Append("请注意，评分应考虑到作文的整体质量，而不仅仅是某一方面的表现。");
+                    judgePromptBuilder.Append("作文批改需要注意以下几点：1.关注作文主旨核心，检查是否离题，检查学生的立意是否深刻清晰；2.关注学生作文中使用的事例是否合适，有无存在使用错误或价值观有问题的事例，使用的事例是否符合历史事实，观察学生引用的事例是否足够新颖；3.检查学生的论证逻辑是否严密，论证方法是否正确；4.观察学生的论证是否触及问题的本质5.作作文的给分需要及其严格，作文某一方面的优秀不能认为作文整体优秀而给出高分，分数应当尽量控制在三类到四类作文的区间");                                                                           
+                    judgePromptBuilder.Append("**最重要提醒** 请使用$$包裹分数输出，用##包裹评语，不可其他内容。请注意务必完整使用对应标记符包裹输出。");
+                    judgePromptBuilder.Append("返回示例：$$50$$ ##示例评语## \n");
+                    judgePromptBuilder.Append("以下为作文的评分标准：");
                     if (!string.IsNullOrWhiteSpace(assignment.ScoringCriteria))
                     {
                         judgePromptBuilder.Append(assignment.ScoringCriteria);
                     }
-                    judgePromptBuilder.Append("其中存在错别字，你可以适当扣分（有可能存在OCR识别问题，建议扣分不超过2分）。");
-                    judgePromptBuilder.Append("请辩证地评判。优点和缺点适当指出。如有题目，请注意是否偏题。");
-                    judgePromptBuilder.Append($"基准分{assignment.BaseScore}分，在此基础上加分和扣分。");
-                    judgePromptBuilder.Append("请给出评分和简单一句话的评语（评分原因，不暴露基准分）。");
-                    judgePromptBuilder.Append("重要提示：评分应符合正态分布，即大部分学生的作文分数应接近平均分，只有少数优秀或较差的作文会有较高或较低的分数。");
-                    judgePromptBuilder.Append("请注意，评分应考虑到作文的整体质量，而不仅仅是某一方面的表现。");
-                    judgePromptBuilder.Append("请注意，谨慎打出一类文和四类文的分数。");                                                                           
-                    judgePromptBuilder.Append("**最重要提醒** 请使用$$包裹分数输出，用##包裹评语，不可其他内容。请注意务必完整使用对应标记符包裹输出。");
-                    judgePromptBuilder.Append("返回示例：$$50$$ ##示例评语## \n");
                     string judgePrompt = judgePromptBuilder.ToString();
 
                     var modelsToUse = await context.AIModelUsageSettings

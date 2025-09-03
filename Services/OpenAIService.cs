@@ -35,6 +35,8 @@ namespace SoraEssayJudge.Services
                 {
                     new { role = "user", content = userPrompt }
                 },
+                temperture=0.5,
+                top_p=0.5,  
                 stream = true
             };
 
