@@ -3,14 +3,6 @@ using System.Collections.Concurrent;
 
 namespace SoraEssayJudge.Services;
 
-public static class PointExtensions
-{
-    public static double DistanceToSquared(this Point2f p1, Point2f p2)
-    {
-        return Math.Pow(p1.X - p2.X, 2) + Math.Pow(p1.Y - p2.Y, 2);
-    }
-}
-
 public class AnswerSheetProcessor
 {
     private const int A3_LONG_SIDE = 3508;

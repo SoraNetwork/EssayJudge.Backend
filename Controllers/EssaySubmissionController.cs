@@ -20,13 +20,15 @@ namespace SoraEssayJudge.Controllers
     public class EssaySubmissionController : ControllerBase
     {
         private readonly JudgeService _judgeService;
+        private readonly IPreProcessImageServiceV2 _preProcessImageServiceV2;
         private readonly EssayContext _context;
         private readonly IWebHostEnvironment _env;
         private readonly ILogger<EssaySubmissionController> _logger;
 
-        public EssaySubmissionController(JudgeService judgeService, EssayContext context, IWebHostEnvironment env, ILogger<EssaySubmissionController> logger)
+        public EssaySubmissionController(JudgeService judgeService, IPreProcessImageServiceV2 preProcessImageServiceV2, EssayContext context, IWebHostEnvironment env, ILogger<EssaySubmissionController> logger)
         {
             _judgeService = judgeService;
+            _preProcessImageServiceV2 = preProcessImageServiceV2;
             _context = context;
             _env = env;
             _logger = logger;
@@ -107,6 +109,60 @@ namespace SoraEssayJudge.Controllers
                 CreatedAt = DateTime.UtcNow,
                 StudentId = null, // Will be updated later
                 Score = 0
+            };
+
+            _context.EssaySubmissions.Add(submission);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Starting background judging process for submission ID: {SubmissionId}", submission.Id);
+            _ = _judgeService.JudgeEssayAsync(submission.Id);
+
+            return Ok(new { submissionId = submission.Id });
+        }
+
+        [HttpPost("V2")]
+        public async Task<IActionResult> PostV2([FromForm] Guid essayAssignmentId, IFormFile imageFile)
+        {
+            _logger.LogInformation("Received new essay submission for assignment ID: {EssayAssignmentId}", essayAssignmentId);
+            if (imageFile == null || imageFile.Length == 0)
+            {
+                _logger.LogWarning("Image file is required but was not provided.");
+                return BadRequest("Image file is required.");
+            }
+
+            var assignment = await _context.EssayAssignments.FindAsync(essayAssignmentId);
+            if (assignment == null)
+            {
+                _logger.LogWarning("Invalid EssayAssignmentId provided: {EssayAssignmentId}", essayAssignmentId);
+                return BadRequest("Invalid EssayAssignmentId.");
+            }
+
+            // Create a unique path for the uploaded file
+            var uploadsDir = Path.Combine(_env.ContentRootPath, "essayfiles");
+            Directory.CreateDirectory(uploadsDir); // Ensure the directory exists
+            var uniqueFileName = $"{Guid.NewGuid()}{Path.GetExtension(imageFile.FileName)}";
+            var filePath = Path.Combine(uploadsDir, uniqueFileName);
+
+            _logger.LogInformation("Saving uploaded file to: {FilePath}", filePath);
+            // Save the file
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await imageFile.CopyToAsync(stream);
+            }
+
+            // 调用新的图片预处理和识别服务
+            string recognizedText = await _preProcessImageServiceV2.ProcessAndRecognizeImageAsync(filePath);
+
+            var submission = new EssaySubmission
+            {
+                Id = Guid.NewGuid(),
+                EssayAssignmentId = essayAssignmentId,
+                ImageUrl = $"/EssayFile/{uniqueFileName}", // 存储图片的URL
+                ColumnCount = 3,
+                CreatedAt = DateTime.UtcNow,
+                StudentId = null, // Will be updated later
+                Score = 0,
+                ParsedText = recognizedText
             };
 
             _context.EssaySubmissions.Add(submission);

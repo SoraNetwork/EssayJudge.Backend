@@ -63,6 +63,7 @@ try
     builder.Services.AddScoped<ProcessImageService>();
     builder.Services.AddScoped<JudgeService>();
     builder.Services.AddScoped<IPreProcessImageService, PreProcessImageService>();
+    builder.Services.AddScoped<IPreProcessImageServiceV2, PreProcessImageServiceV2>();
     builder.Services.AddScoped<IImageStitchingService, ImageStitchingService>();
 
     builder.Services.Configure<DingTalkConfiguration>(builder.Configuration.GetSection("DingTalk"));

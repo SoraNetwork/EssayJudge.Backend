@@ -18,6 +18,7 @@ public class StudentUploadController : ControllerBase
     private readonly JudgeService _judge;
     private readonly IPreProcessImageService _preProcessImageService;
     private readonly IImageStitchingService _imageStitchingService;
+    private readonly IPreProcessImageServiceV2 _preProcessImageServiceV2;
     private readonly string _uploadPath;
 
     public StudentUploadController(
@@ -25,6 +26,7 @@ public class StudentUploadController : ControllerBase
         EssayContext context, 
         ILogger<StudentUploadController> logger,
         IPreProcessImageService preProcessImageService,
+        IPreProcessImageServiceV2 preProcessImageServiceV2,
         IImageStitchingService imageStitchingService,
         IConfiguration configuration)
     {
@@ -32,6 +34,7 @@ public class StudentUploadController : ControllerBase
         _context = context;
         _logger = logger;
         _preProcessImageService = preProcessImageService;
+        _preProcessImageServiceV2 = preProcessImageServiceV2;
         _imageStitchingService = imageStitchingService;
         _uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "essayfiles");
         Directory.CreateDirectory(_uploadPath);
@@ -116,6 +119,51 @@ public class StudentUploadController : ControllerBase
             .ToListAsync();
 
         return Ok(assignments);
+    }
+    [HttpPost("checkimg/V2")]
+    public async Task<ActionResult<CheckImageResponseDto>> CheckImageV2(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new { Message = "没有上传文件" });
+        }
+
+        if (!file.ContentType.StartsWith("image/"))
+        {
+            return BadRequest(new { Message = "只接受图片文件" });
+        }
+
+        try
+        {
+            // 保存并压缩为WebP
+            string originalFileName = $"{Guid.NewGuid()}_original.webp";
+            string originalFilePath = Path.Combine(_uploadPath, originalFileName);
+
+            using (var stream = file.OpenReadStream())
+            using (var image = await Image.LoadAsync(stream))
+            {
+                var encoder = new WebpEncoder
+                {
+                    Quality = 80 // 调整压缩质量
+                };
+                await image.SaveAsync(originalFilePath, encoder);
+            }
+
+            // 处理图片
+            string processedImageName = await _preProcessImageServiceV2.PreProcessImageAsync(originalFilePath);
+
+            return Ok(new CheckImageResponseDto 
+            { 
+                Success = true,
+                ProcessedImageUrl = "/essayfiles/"+processedImageName,
+                Message = "图片处理成功"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "图片处理失败");
+            return BadRequest(new { Message = "图片处理失败: " + ex.Message });
+        }
     }
 
     [HttpPost("checkimg")]
