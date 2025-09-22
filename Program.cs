@@ -29,11 +29,11 @@ try
     // Increase upload size limit
     builder.Services.Configure<KestrelServerOptions>(options =>
     {
-        options.Limits.MaxRequestBodySize = 209715200; // 200 MB
+        options.Limits.MaxRequestBodySize = 1073741824; // 1024 MB
     });
     builder.Services.Configure<FormOptions>(options =>
     {
-        options.MultipartBodyLengthLimit = 209715200; // 200 MB
+        options.MultipartBodyLengthLimit = 1073741824; // 1024 MB
     });
 
     // 2. Add full Serilog support

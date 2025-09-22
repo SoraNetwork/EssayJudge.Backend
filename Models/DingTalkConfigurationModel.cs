@@ -4,5 +4,7 @@ namespace SoraEssayJudge.Models
     {
         public string AppKey { get; set; }
         public string AppSecret { get; set; }
+
+        public string OperatorUnionId { get; set; }
     }
 }

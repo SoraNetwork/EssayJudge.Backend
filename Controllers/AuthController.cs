@@ -46,7 +46,7 @@ namespace SoraEssayJudge.Controllers
             {
                 var dingTalkUser = await _dingTalkService.GetLegacyUserInfoByCodeAsync(Code);
 
-                var token = GenerateJwtToken();
+                var token = GenerateJwtToken(null, dingTalkUser.UnionId);
                 return Ok(new LoginResponseDto
                 {
                     Token = token,
@@ -76,7 +76,7 @@ namespace SoraEssayJudge.Controllers
             {
                 var dingTalkUser = await _dingTalkService.GetSsoUserInfoByCodeAsync(Code);
 
-                var token = GenerateJwtToken();
+                var token = GenerateJwtToken(null,dingTalkUser.UnionId);
                 return Ok(new LoginResponseDto
                 {
                     Token = token,
@@ -141,7 +141,7 @@ namespace SoraEssayJudge.Controllers
             });
         }
 
-        private string GenerateJwtToken(User? user = null)
+        private string GenerateJwtToken(User? user = null,String? UnionId = null)
         {
             if (user == null)
                 user = new User
@@ -158,7 +158,8 @@ namespace SoraEssayJudge.Controllers
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
                 new Claim("name", user.Name ?? ""),
-                new Claim("phone", user.PhoneNumber ?? "")
+                new Claim("phone", user.PhoneNumber ?? ""),
+                new Claim("unionid", UnionId ?? "")
             };
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

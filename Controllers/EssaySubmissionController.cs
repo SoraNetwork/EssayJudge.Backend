@@ -120,6 +120,92 @@ namespace SoraEssayJudge.Controllers
             return Ok(new { submissionId = submission.Id });
         }
 
+        [HttpPost("batch")]
+        public async Task<IActionResult> PostBatch([FromForm] Guid essayAssignmentId, List<IFormFile> imageFiles, [FromForm] int columnCount)
+        {
+            _logger.LogInformation("Received batch essay submission for assignment ID: {EssayAssignmentId} with {FileCount} files", essayAssignmentId, imageFiles?.Count ?? 0);
+
+            if (imageFiles == null || imageFiles.Count == 0)
+            {
+                _logger.LogWarning("No image files were provided in the batch submission.");
+                return BadRequest("At least one image file is required.");
+            }
+
+            var assignment = await _context.EssayAssignments.FindAsync(essayAssignmentId);
+            if (assignment == null)
+            {
+                _logger.LogWarning("Invalid EssayAssignmentId provided: {EssayAssignmentId}", essayAssignmentId);
+                return BadRequest("Invalid EssayAssignmentId.");
+            }
+
+            var uploadsDir = Path.Combine(_env.ContentRootPath, "essayfiles");
+            Directory.CreateDirectory(uploadsDir);
+
+            var submissionIds = new List<Guid>();
+            var submissions = new List<EssaySubmission>();
+
+            
+            foreach (var imageFile in imageFiles)
+            {
+                if (imageFile == null || imageFile.Length == 0)
+                {
+                    _logger.LogWarning("One of the image files in the batch is invalid or empty. Skipping this file.");
+                    continue;
+                }
+
+                var uniqueFileName = $"{Guid.NewGuid()}{Path.GetExtension(imageFile.FileName)}";
+                var filePath = Path.Combine(uploadsDir, uniqueFileName);
+
+                _logger.LogInformation("Saving uploaded file to: {FilePath}", filePath);
+
+                
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await imageFile.CopyToAsync(stream);
+                }
+
+                var submission = new EssaySubmission
+                {
+                    Id = Guid.NewGuid(),
+                    EssayAssignmentId = essayAssignmentId,
+                    ImageUrl = $"/EssayFile/{uniqueFileName}",
+                    ColumnCount = columnCount,
+                    CreatedAt = DateTime.UtcNow,
+                    StudentId = null,
+                    Score = 0
+                };
+
+                _context.EssaySubmissions.Add(submission);
+                submissionIds.Add(submission.Id);
+                submissions.Add(submission);
+            }
+
+            
+            await _context.SaveChangesAsync();
+
+            
+            var response = Ok(new { submissionIds });
+
+            
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    foreach (var submission in submissions)
+                    {
+                        _logger.LogInformation("Starting background judging process for submission ID: {SubmissionId}", submission.Id);
+                        await _judgeService.JudgeEssayAsync(submission.Id);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error occurred during background judging process");
+                }
+            });
+
+            return response;
+        }
+
         [HttpPost("V2")]
         public async Task<IActionResult> PostV2([FromForm] Guid essayAssignmentId, IFormFile imageFile)
         {

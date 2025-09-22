@@ -341,7 +341,7 @@ namespace SoraEssayJudge.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "An unhandled exception occurred during judging for submission ID: {SubmissionId}", submissionId);
+                    _logger.LogError(ex, "An unhandled exception occurred during judging for submission ID: {SubmissionId} , \n Error: {ex.ToString()}", submissionId , ex.ToString());
                     submission.IsError = true;
                     submission.ErrorMessage = ex.ToString(); // Log the full exception
                 }
@@ -350,6 +350,8 @@ namespace SoraEssayJudge.Services
                     await context.SaveChangesAsync();
                     _logger.LogInformation("Finished essay judging process for submission ID: {SubmissionId}", submissionId);
                 }
+
+                return;
             }
         }
 

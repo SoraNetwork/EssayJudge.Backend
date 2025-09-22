@@ -67,5 +67,25 @@ namespace SoraEssayJudge.Controllers
                 .ToListAsync();
             return Ok(result);
         }
+        [HttpGet("unsubmitted-students")]
+        public async Task<IActionResult> GetUnsubmittedStudents([FromQuery] Guid assignmentId)
+        {
+            var submittedStudentIds = await _context.EssaySubmissions
+                .Where(es => es.EssayAssignmentId == assignmentId)
+                .Select(es => es.StudentId)
+                .Distinct()
+                .ToListAsync();
+            var unsubmittedStudents = await _context.Students
+                .Where(s => !submittedStudentIds.Contains(s.Id))
+                .Select(s => new
+                {
+                    s.Id,
+                    s.Name,
+                    ClassName = s.Class != null ? s.Class.Name : null
+                })
+                .ToListAsync();
+            return Ok(unsubmittedStudents);
+        }
+
     }
 }
