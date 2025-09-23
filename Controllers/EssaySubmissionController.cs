@@ -1,16 +1,17 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using SoraEssayJudge.Services;
-using System.Threading.Tasks;
-using SoraEssayJudge.Models;
-using SoraEssayJudge.Data;
-using System;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Http;
-using System.IO;
 using Microsoft.AspNetCore.Hosting;
-using SoraEssayJudge.Dtos;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using SoraEssayJudge.Data;
+using SoraEssayJudge.Dtos;
+using SoraEssayJudge.Models;
+using SoraEssayJudge.Services;
+using System;
+using System.IO;
+using System.Threading.Tasks;
 
 namespace SoraEssayJudge.Controllers
 {
@@ -24,14 +25,16 @@ namespace SoraEssayJudge.Controllers
         private readonly EssayContext _context;
         private readonly IWebHostEnvironment _env;
         private readonly ILogger<EssaySubmissionController> _logger;
+        private readonly IServiceScopeFactory _serviceScopeFactory; // Add IServiceProvider to inject
 
-        public EssaySubmissionController(JudgeService judgeService, IPreProcessImageServiceV2 preProcessImageServiceV2, EssayContext context, IWebHostEnvironment env, ILogger<EssaySubmissionController> logger)
+        public EssaySubmissionController(JudgeService judgeService, IPreProcessImageServiceV2 preProcessImageServiceV2, EssayContext context, IWebHostEnvironment env, ILogger<EssaySubmissionController> logger,IServiceScopeFactory serviceScopeFactory)
         {
             _judgeService = judgeService;
             _preProcessImageServiceV2 = preProcessImageServiceV2;
             _context = context;
             _env = env;
             _logger = logger;
+            _serviceScopeFactory = serviceScopeFactory;
         }
 
         [HttpGet("summary")]
@@ -144,7 +147,6 @@ namespace SoraEssayJudge.Controllers
             var submissionIds = new List<Guid>();
             var submissions = new List<EssaySubmission>();
 
-            
             foreach (var imageFile in imageFiles)
             {
                 if (imageFile == null || imageFile.Length == 0)
@@ -158,7 +160,6 @@ namespace SoraEssayJudge.Controllers
 
                 _logger.LogInformation("Saving uploaded file to: {FilePath}", filePath);
 
-                
                 using (var stream = new FileStream(filePath, FileMode.Create))
                 {
                     await imageFile.CopyToAsync(stream);
@@ -180,27 +181,61 @@ namespace SoraEssayJudge.Controllers
                 submissions.Add(submission);
             }
 
-            
             await _context.SaveChangesAsync();
 
-            
             var response = Ok(new { submissionIds });
 
-            
+            // 使用 SemaphoreSlim 控制并发数量为3
             _ = Task.Run(async () =>
             {
-                try
+                // 创建信号量，初始并发数为3
+                using var semaphore = new SemaphoreSlim(3, 3);
+                var tasks = new List<Task>();
+
+                foreach (var submission in submissions)
                 {
-                    foreach (var submission in submissions)
+                    // 等待信号量可用（如果有并发槽空出来）
+                    await semaphore.WaitAsync();
+
+                    // 为每个提交创建任务
+                    var task = Task.Run(async () =>
                     {
-                        _logger.LogInformation("Starting background judging process for submission ID: {SubmissionId}", submission.Id);
-                        await _judgeService.JudgeEssayAsync(submission.Id);
-                    }
+                        try
+                        {
+                            using var scope = _serviceScopeFactory.CreateScope();
+                            var judgeService = scope.ServiceProvider.GetRequiredService<JudgeService>();
+
+                            _logger.LogInformation("Starting background judging process for submission ID: {SubmissionId}", submission.Id);
+                            await judgeService.JudgeEssayAsync(submission.Id);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error occurred during background judging process for submission ID: {SubmissionId}", submission.Id);
+
+                            // 更新错误状态
+                            using var errorScope = _serviceScopeFactory.CreateScope();
+                            var errorContext = errorScope.ServiceProvider.GetRequiredService<EssayContext>();
+                            var s = await errorContext.EssaySubmissions.FindAsync(submission.Id);
+                            if (s != null)
+                            {
+                                s.IsError = true;
+                                s.ErrorMessage = "Background judging failed: " + ex.Message;
+                                await errorContext.SaveChangesAsync();
+                            }
+                        }
+                        finally
+                        {
+                            // 释放信号量，让下一个任务可以开始
+                            semaphore.Release();
+                        }
+                    });
+
+                    tasks.Add(task);
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error occurred during background judging process");
-                }
+
+                // 等待所有任务完成
+                await Task.WhenAll(tasks);
+                _logger.LogInformation("All background judging tasks completed for assignment ID: {EssayAssignmentId}", essayAssignmentId);
             });
 
             return response;
