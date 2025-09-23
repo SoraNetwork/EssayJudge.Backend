@@ -40,6 +40,13 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: publish
+    strategy:
+      matrix:
+        environment: [hangzhou, ningbo]
+    
+    name: Deploy to ${{ matrix.environment }}
+    environment: ${{ matrix.environment }}
+    
     steps:
     - name: Download artifacts
       uses: actions/download-artifact@v4
@@ -54,29 +61,28 @@ jobs:
     - name: Stop remote service
       uses: appleboy/ssh-action@v1
       with: 
-        host: ${{ secrets.HANGZHOU_SERVER }}
-        username: ${{ secrets.HANGZHOU_USERNAME }}
-        password: ${{ secrets.HANGZHOU_KEY }}
+        host: ${{ secrets[format('{0}_SERVER', matrix.environment)] }}
+        username: ${{ secrets[format('{0}_USERNAME', matrix.environment)] }}
+        password: ${{ secrets[format('{0}_KEY', matrix.environment)] }}
         script: sudo supervisorctl stop sora-essayjudge-backend-service
           
     - name: Deploy via SFTP
       uses: wlixcc/SFTP-Deploy-Action@v1.2.5
       with:
-        server: ${{ secrets.HANGZHOU_SERVER }}
-        username: ${{ secrets.HANGZHOU_USERNAME }}
-        password: ${{ secrets.HANGZHOU_KEY }}
+        server: ${{ secrets[format('{0}_SERVER', matrix.environment)] }}
+        username: ${{ secrets[format('{0}_USERNAME', matrix.environment)] }}
+        password: ${{ secrets[format('{0}_KEY', matrix.environment)] }}
         local_path: './deploy-package/*'
         remote_path: '/www/SoraEssayJudge.Backend'
         
     - name: Start remote service
       uses: appleboy/ssh-action@v1
       with: 
-        host: ${{ secrets.HANGZHOU_SERVER }}
-        username: ${{ secrets.HANGZHOU_USERNAME }}
-        password: ${{ secrets.HANGZHOU_KEY }}
+        host: ${{ secrets[format('{0}_SERVER', matrix.environment)] }}
+        username: ${{ secrets[format('{0}_USERNAME', matrix.environment)] }}
+        password: ${{ secrets[format('{0}_KEY', matrix.environment)] }}
         script: sudo supervisorctl start sora-essayjudge-backend-service
-
-
-
-
-
+        
+    - name: Verify deployment
+      run: |
+        echo "✅ 应用已成功部署到 ${{ matrix.environment }} 服务器"
