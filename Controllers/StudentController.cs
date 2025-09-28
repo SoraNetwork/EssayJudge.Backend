@@ -54,7 +54,8 @@ namespace SoraEssayJudge.Controllers
                 StudentId = s.StudentId,
                 Name = s.Name,
                 CreatedAt = s.CreatedAt,
-                Class = s.Class
+                Class = s.Class,
+                ClassId = s.ClassId
             })  
             .ToListAsync();
 
