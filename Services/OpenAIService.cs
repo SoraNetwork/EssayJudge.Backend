@@ -22,7 +22,7 @@ namespace SoraEssayJudge.Services
             _httpClient = new HttpClient();
         }
 
-        public async Task<string> GetChatCompletionAsync(string userPrompt, string model = "qwen-plus-latest",string? image_Url = null)
+        public async Task<string> GetChatCompletionAsync(string userPrompt, string model = "qwen-plus-latest", string? image_Url = null)
         {
             var apiKey = await _apiKeyService.GetApiKeyForModel(model);
             if (apiKey == null)
@@ -43,21 +43,43 @@ namespace SoraEssayJudge.Services
                     },
                     temperature = 0.5,
                     top_p = 0.5,
-                    stream = true
+                    stream = true,
+                    enable_thinking=true,
+                    thinking_budget=500
+
                 };
             }
-            else{
+            else
+            {
+                // 修复多模态消息格式：将文本和图片放在同一个消息的content数组中
                 requestBody = new
                 {
                     model = model,
-                    messages = new object[]
+                    messages = new[]
                     {
-                        new { role = "user", content = userPrompt },
-                        new { role = "user", content = new { type = "image_url", image_url = new { url = image_Url } } }
+                        new
+                        {
+                            role = "user",
+                            content = new object[]
+                            {
+                                new
+                                {
+                                    type = "image_url",
+                                    image_url = new { url = image_Url }
+                                },
+                                new
+                                {
+                                    type = "text",
+                                    text = userPrompt
+                                }
+                            }
+                        }
                     },
                     temperature = 0.5,
                     top_p = 0.5,
-                    stream = true
+                    stream = true,
+                    enable_thinking = true,
+                    thinking_budget = 500
                 };
             }
 

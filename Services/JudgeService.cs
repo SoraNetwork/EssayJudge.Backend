@@ -159,6 +159,7 @@ namespace SoraEssayJudge.Services
                             }
                         }
                     }
+                    
                     if (submission.StudentId == null)
                     {
                         _logger.LogWarning("Student not identified for submission ID: {SubmissionId}", submissionId);
@@ -179,12 +180,12 @@ namespace SoraEssayJudge.Services
                     _logger.LogInformation("Image processed successfully for submission ID: {SubmissionId}. Parsed text length: {ParsedTextLength}", submissionId, parsedText.Length);
 
                     // Save the OCR result to the database immediately so it can be viewed while judging is in progress.
-                    await context.SaveChangesAsync();
 
                     var judgePromptBuilder = new System.Text.StringBuilder();
                     judgePromptBuilder.Append("system:假定你是一个高中语文教师，正在参与高考语文作文的批阅。");
                     judgePromptBuilder.Append($"请根据以下作文内容进行评分，满分{{ {assignment.TotalScore} }}分。");
                     judgePromptBuilder.Append($"该作文年级为{assignment.Grade}，题目背景为“{assignment.TitleContext ?? "暂不知"}”。");
+                    judgePromptBuilder.Append($"该作文的字数为{submission.ParsedText.Length}，请根据题目要求注意字数多少。（一般在题目要求的90%以上为正常，少于80%的字数需要适当扣分）");
                     judgePromptBuilder.Append("其中可能存在错别字，你需要适当扣分（有可能存在OCR识别问题，扣分不超过3分）。");
                     judgePromptBuilder.Append("请辩证地评判。优点和缺点适当指出。如有题目，请注意是否偏题。");
                     judgePromptBuilder.Append($"基准分{assignment.BaseScore}分，在此基础上加分和扣分。");
@@ -402,6 +403,7 @@ namespace SoraEssayJudge.Services
             reportBuilder.AppendLine($"年级：{assignment.Grade}");
             reportBuilder.AppendLine($"满分：{assignment.TotalScore}");
             reportBuilder.AppendLine($"最终得分：{submission.FinalScore:F2}");
+            reportBuilder.AppendLine($"该作文的字数为：{submission.ParsedText!.Length}");
             reportBuilder.AppendLine("\n--- 作文原文 ---");
             reportBuilder.AppendLine(parsedText);
             reportBuilder.AppendLine("\n--- AI模型评分详情 ---");
