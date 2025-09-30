@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Microsoft.Extensions.Configuration;
+using System.Linq;
+using Microsoft.IdentityModel.Tokens;
 
 namespace SoraEssayJudge.Services
 {
@@ -20,7 +22,7 @@ namespace SoraEssayJudge.Services
             _httpClient = new HttpClient();
         }
 
-        public async Task<string> GetChatCompletionAsync(string userPrompt, string model = "qwen-plus-latest")
+        public async Task<string> GetChatCompletionAsync(string userPrompt, string model = "qwen-plus-latest",string? image_Url = null)
         {
             var apiKey = await _apiKeyService.GetApiKeyForModel(model);
             if (apiKey == null)
@@ -28,17 +30,37 @@ namespace SoraEssayJudge.Services
                 return "Error: No available OpenAI API key.";
             }
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Key);
-            var requestBody = new
+
+            object requestBody;
+            if (string.IsNullOrEmpty(image_Url))
             {
-                model = model,
-                messages = new[]
+                requestBody = new
                 {
-                    new { role = "user", content = userPrompt }
-                },
-                temperture=0.5,
-                top_p=0.5,  
-                stream = true
-            };
+                    model = model,
+                    messages = new[]
+                    {
+                        new { role = "user", content = userPrompt }
+                    },
+                    temperature = 0.5,
+                    top_p = 0.5,
+                    stream = true
+                };
+            }
+            else{
+                requestBody = new
+                {
+                    model = model,
+                    messages = new object[]
+                    {
+                        new { role = "user", content = userPrompt },
+                        new { role = "user", content = new { type = "image_url", image_url = new { url = image_Url } } }
+                    },
+                    temperature = 0.5,
+                    top_p = 0.5,
+                    stream = true
+                };
+            }
+
 
             var requestUri = $"{apiKey.Endpoint!}";
             var request = new HttpRequestMessage(HttpMethod.Post, requestUri)

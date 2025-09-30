@@ -24,7 +24,7 @@ namespace SoraEssayJudge.Services
             _webHostEnvironment = webHostEnvironment;
         }
 
-        public async Task JudgeEssayAsync(Guid submissionId)
+        public async Task JudgeEssayAsync(Guid submissionId,bool enableV3 = false)
         {
             _logger.LogInformation("Starting essay judging process for submission ID: {SubmissionId}", submissionId);
             using (var scope = _serviceProvider.CreateScope())
@@ -57,7 +57,34 @@ namespace SoraEssayJudge.Services
                         return;
                     }
                     string parsedText = submission.ParsedText;
-                    if (string.IsNullOrEmpty(parsedText))
+                    if (enableV3 && string.IsNullOrWhiteSpace(parsedText))
+                    {
+                        _logger.LogInformation("V3 OCR processing enabled for submission ID: {SubmissionId}", submissionId);
+                        var ocrProcessingModelSetting = await context.AIModelUsageSettings
+                            .Include(s => s.AIModel)
+                            .FirstOrDefaultAsync(s => s.UsageType == "OcrV3" && s.IsEnabled);
+                        if (ocrProcessingModelSetting == null || ocrProcessingModelSetting.AIModel == null)
+                        {
+                            _logger.LogError("No enabled 'OcrV3' model configured in AIModelUsageSettings for submission ID: {SubmissionId}.", submissionId);
+                            submission.IsError = true;
+                            submission.ErrorMessage = "OCRV3 model not configured.";
+                            await context.SaveChangesAsync();
+                            return;
+                        }
+                        if (string.IsNullOrEmpty(submission.ImageUrl))
+                        {
+                            _logger.LogError("ImageUrl is null or empty for submission ID: {SubmissionId}. Cannot proceed with V3 OCR processing.", submissionId);
+                            submission.IsError = true;
+                            submission.ErrorMessage = "ImageUrl is required for V3 OCR processing.";
+                            await context.SaveChangesAsync();
+                            return;
+                        }
+                        string webImageUrl = "https://api.ej.xingsora.cn" + submission.ImageUrl;
+
+                        parsedText = await processImageService.ProcessImageAsyncV3(webImageUrl, submission.Id, ocrProcessingModelSetting.AIModel.ModelId);
+                        submission.ParsedText = parsedText;
+                    }
+                        if (string.IsNullOrEmpty(parsedText))
                     {
                         // Fetch model settings from DB
                         var ocrProcessingModelSetting = await context.AIModelUsageSettings
@@ -136,6 +163,17 @@ namespace SoraEssayJudge.Services
                     {
                         _logger.LogWarning("Student not identified for submission ID: {SubmissionId}", submissionId);
                         errors.Add("Student not identified for this submission.");
+                    }
+
+                    if (submission.ParsedText.Length <= 300)
+                    {
+                        _logger.LogWarning("Parsed text is too short (length: {ParsedTextLength}) for submission ID: {SubmissionId}. Minimum length is 300 characters.", parsedText.Length, submissionId);
+                        errors.Add("Parsed text is too short. Minimum length is 300 characters.");
+                        submission.IsError = true;
+                        submission.ErrorMessage = string.Join(" | ", errors);
+                        await context.SaveChangesAsync();
+                        return;
+
                     }
 
                     _logger.LogInformation("Image processed successfully for submission ID: {SubmissionId}. Parsed text length: {ParsedTextLength}", submissionId, parsedText.Length);

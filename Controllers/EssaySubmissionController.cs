@@ -74,7 +74,7 @@ namespace SoraEssayJudge.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Post([FromForm] Guid essayAssignmentId, IFormFile imageFile, [FromForm] int columnCount)
+        public async Task<IActionResult> Post([FromForm] Guid essayAssignmentId, IFormFile imageFile, [FromForm] int columnCount, [FromForm] bool enableV3 = false)
         {
             _logger.LogInformation("Received new essay submission for assignment ID: {EssayAssignmentId}", essayAssignmentId);
             if (imageFile == null || imageFile.Length == 0)
@@ -118,13 +118,17 @@ namespace SoraEssayJudge.Controllers
             await _context.SaveChangesAsync();
 
             _logger.LogInformation("Starting background judging process for submission ID: {SubmissionId}", submission.Id);
-            _ = _judgeService.JudgeEssayAsync(submission.Id);
+            if (enableV3)
+            {
+                _logger.LogInformation("V3 judging enabled for submission ID: {SubmissionId}", submission.Id);
+            }
+            _ = _judgeService.JudgeEssayAsync(submission.Id,enableV3);
 
             return Ok(new { submissionId = submission.Id });
         }
 
         [HttpPost("batch")]
-        public async Task<IActionResult> PostBatch([FromForm] Guid essayAssignmentId, List<IFormFile> imageFiles, [FromForm] int columnCount)
+        public async Task<IActionResult> PostBatch([FromForm] Guid essayAssignmentId, List<IFormFile> imageFiles, [FromForm] int columnCount, [FromForm] bool enableV3 = false)
         {
             _logger.LogInformation("Received batch essay submission for assignment ID: {EssayAssignmentId} with {FileCount} files", essayAssignmentId, imageFiles?.Count ?? 0);
 
@@ -206,7 +210,11 @@ namespace SoraEssayJudge.Controllers
                             var judgeService = scope.ServiceProvider.GetRequiredService<JudgeService>();
 
                             _logger.LogInformation("Starting background judging process for submission ID: {SubmissionId}", submission.Id);
-                            await judgeService.JudgeEssayAsync(submission.Id);
+                            if(enableV3)
+                            {
+                                _logger.LogInformation("V3 judging enabled for submission ID: {SubmissionId}", submission.Id);
+                            }
+                            await judgeService.JudgeEssayAsync(submission.Id,enableV3);
                         }
                         catch (Exception ex)
                         {
