@@ -66,6 +66,8 @@ try
     builder.Services.AddScoped<IPreProcessImageServiceV2, PreProcessImageServiceV2>();
     builder.Services.AddScoped<IImageStitchingService, ImageStitchingService>();
 
+    builder.Services.AddHttpClient<UploadTemporaryImageService>();
+
     builder.Services.Configure<DingTalkConfiguration>(builder.Configuration.GetSection("DingTalk"));
     builder.Services.AddMemoryCache();
     builder.Services.AddHttpClient<IDingTalkService, DingTalkService>();

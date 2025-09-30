@@ -79,9 +79,28 @@ namespace SoraEssayJudge.Services
                             await context.SaveChangesAsync();
                             return;
                         }
-                        string webImageUrl = "https://api.ej.xingsora.cn" + submission.ImageUrl;
+                        string? imagePath = null;
+                        if (!string.IsNullOrEmpty(submission.ImageUrl))
+                        {
+                            // 假设 ImageUrl 形如 /EssayFile/xxx.jpg
+                            var fileName = submission.ImageUrl.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
+                            if (!string.IsNullOrEmpty(fileName))
+                            {
+                                var uploadsDir = System.IO.Path.Combine(_webHostEnvironment.ContentRootPath, "essayfiles");
+                                imagePath = System.IO.Path.Combine(uploadsDir, fileName);
+                            }
+                        }
 
-                        parsedText = await processImageService.ProcessImageAsyncV3(webImageUrl, submission.Id, ocrProcessingModelSetting.AIModel.ModelId);
+                        if (imagePath == null)
+                        {
+                            _logger.LogError("Image path could not be determined for submission ID: {SubmissionId}. ImageUrl: {ImageUrl}", submissionId, submission.ImageUrl);
+                            submission.IsError = true;
+                            submission.ErrorMessage = "Image path could not be determined.";
+                            await context.SaveChangesAsync();
+                            return;
+                        }
+
+                        parsedText = await processImageService.ProcessImageAsyncV3(imagePath, submission.Id, ocrProcessingModelSetting.AIModel.ModelId);
                         submission.ParsedText = parsedText;
                     }
                         if (string.IsNullOrEmpty(parsedText))
@@ -166,10 +185,21 @@ namespace SoraEssayJudge.Services
                         errors.Add("Student not identified for this submission.");
                     }
 
-                    if (submission.ParsedText.Length <= 300)
+                    if (submission.ParsedText!.Length <= 300)
                     {
                         _logger.LogWarning("Parsed text is too short (length: {ParsedTextLength}) for submission ID: {SubmissionId}. Minimum length is 300 characters.", parsedText.Length, submissionId);
                         errors.Add("Parsed text is too short. Minimum length is 300 characters.");
+                        submission.IsError = true;
+                        submission.ErrorMessage = string.Join(" | ", errors);
+                        await context.SaveChangesAsync();
+                        return;
+
+                    }
+
+                    if (submission.ParsedText.Contains("Error"))
+                    {
+                        _logger.LogWarning("PrasedText contains \"Wrror\". May error exists.");
+                        errors.Add("PrasedText contains \"Wrror\". May error exists.");
                         submission.IsError = true;
                         submission.ErrorMessage = string.Join(" | ", errors);
                         await context.SaveChangesAsync();
