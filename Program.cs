@@ -67,10 +67,16 @@ try
     builder.Services.AddScoped<IImageStitchingService, ImageStitchingService>();
 
     builder.Services.AddHttpClient<UploadTemporaryImageService>();
+    
+    builder.Services.AddHttpClient<IDingTalkSheetService, DingTalkSheetService>();
+    builder.Services.AddScoped<IEssayAssignmentSpreadsheetService, EssayAssignmentSpreadsheetService>();
+    builder.Services.AddHostedService<DingTalkSpreadsheetInitializationService>();
+    builder.Services.AddHostedService<DingTalkSpreadsheetSyncService>();
 
     builder.Services.Configure<DingTalkConfiguration>(builder.Configuration.GetSection("DingTalk"));
     builder.Services.AddMemoryCache();
     builder.Services.AddHttpClient<IDingTalkService, DingTalkService>();
+    builder.Services.AddHttpClient<IDingTalkSheetService, DingTalkSheetService>();
     
 
     builder.Services.AddControllers().AddJsonOptions(options =>

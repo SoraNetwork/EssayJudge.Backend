@@ -418,6 +418,20 @@ namespace SoraEssayJudge.Services
                 {
                     await context.SaveChangesAsync();
                     _logger.LogInformation("Finished essay judging process for submission ID: {SubmissionId}", submissionId);
+                    
+                    // Process the submission for DingTalk spreadsheet integration
+                    try
+                    {
+                        using (var serviceScope = _serviceProvider.CreateScope())
+                        {
+                            var spreadsheetService = serviceScope.ServiceProvider.GetRequiredService<IEssayAssignmentSpreadsheetService>();
+                            await spreadsheetService.ProcessEssaySubmissionForSpreadsheetAsync(submissionId);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error processing submission {SubmissionId} for DingTalk spreadsheet integration", submissionId);
+                    }
                 }
 
                 return;
