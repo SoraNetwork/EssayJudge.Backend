@@ -43,11 +43,11 @@ namespace SoraEssayJudge.Services
                     {
                 new { role = "user", content = userPrompt }
             },
-                    temperature = 0.5,
+                    temperature = 0.65,
                     top_p = 0.5,
                     stream = true,
                     enable_thinking = true,
-                    thinking_budget = 500
+                    // thinking_budget = 500
                 };
             }
             else
@@ -76,11 +76,11 @@ namespace SoraEssayJudge.Services
                     }
                 }
             },
-                    temperature = 0.5,
+                    temperature = 0.65,
                     top_p = 0.5,
                     stream = true,
                     enable_thinking = true,
-                    thinking_budget = 500
+                    // thinking_budget = 500
                 };
             }
 
@@ -107,15 +107,15 @@ namespace SoraEssayJudge.Services
                             string? line;
                             while ((line = await reader.ReadLineAsync()) != null)
                             {
-                                // 跳过空行
+                                //         
                                 if (string.IsNullOrWhiteSpace(line)) continue;
 
-                                // 处理 SSE 格式
+                                //      SSE   式
                                 if (line.StartsWith("data: "))
                                 {
                                     var jsonStr = line.Substring(6).Trim();
 
-                                    // 检查是否是结束标记
+                                    //     欠  墙      
                                     if (jsonStr.Equals("[DONE]", StringComparison.OrdinalIgnoreCase))
                                     {
                                         break;
@@ -125,21 +125,21 @@ namespace SoraEssayJudge.Services
                                     {
                                         var responseObject = JObject.Parse(jsonStr);
 
-                                        // 提取普通内容
+                                        //   取  通    
                                         var deltaContent = responseObject["choices"]?[0]?["delta"]?["content"]?.ToString();
                                         if (!string.IsNullOrEmpty(deltaContent))
                                         {
                                             fullContent.Append(deltaContent);
                                         }
 
-                                        // 提取 thinking 内容（如果有）
+                                        //   取 thinking    荩     校 
                                         var thinkingDelta = responseObject["choices"]?[0]?["delta"]?["thinking"]?.ToString();
                                         if (!string.IsNullOrEmpty(thinkingDelta))
                                         {
                                             thinkingContent.Append(thinkingDelta);
                                         }
 
-                                        // 检查是否有错误
+                                        //     欠  写   
                                         var error = responseObject["error"]?.ToString();
                                         if (!string.IsNullOrEmpty(error))
                                         {
@@ -148,30 +148,30 @@ namespace SoraEssayJudge.Services
                                     }
                                     catch (JsonReaderException ex)
                                     {
-                                        // 记录无法解析的行，但继续处理
+                                        //   录 薹        校           
                                         Console.WriteLine($"Failed to parse JSON: {jsonStr}, Error: {ex.Message}");
                                     }
                                 }
                                 else if (line.StartsWith("event:") || line.StartsWith("id:"))
                                 {
-                                    // 忽略 SSE 的元数据行
+                                    //      SSE   元      
                                     continue;
                                 }
                                 else
                                 {
-                                    // 记录意外的行格式
+                                    //   录      懈 式
                                     Console.WriteLine($"Unexpected line format: {line}");
                                 }
                             }
                         }
 
-                        // 如果有 thinking 内容，可以选择性地包含或记录
+                        //       thinking    荩     选   缘匕      录
                         if (thinkingContent.Length > 0)
                         {
                             Console.WriteLine($"Thinking process: {thinkingContent}");
                         }
 
-                        // 检查是否真的获取到了内容
+                        //     欠   幕 取        
                         if (fullContent.Length == 0)
                         {
                             return "Error: No content received from API";

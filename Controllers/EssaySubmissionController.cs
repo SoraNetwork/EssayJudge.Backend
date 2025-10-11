@@ -403,7 +403,15 @@ namespace SoraEssayJudge.Controllers
                 submission.Score = updateDto.Score;
             }
 
-            
+            if(!String.IsNullOrEmpty(updateDto.Title))
+            {
+                submission.Title = updateDto.Title;
+            }
+            if(!String.IsNullOrEmpty(updateDto.ParsedText))
+            {
+                submission.ParsedText = updateDto.ParsedText;
+            }
+
 
             // 清除错误信息
             submission.IsError = false;

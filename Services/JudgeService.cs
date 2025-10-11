@@ -154,10 +154,10 @@ namespace SoraEssayJudge.Services
                         {
                             submission.Title = lines[0];
                         }
-
+                        string studentName = null;
                         if (lines[^1].Contains("$$"))
                         {
-                            var studentName = lines[^1].Replace("$$", "").Trim();
+                            studentName = lines[^1].Replace("$$", "").Trim();
                             _logger.LogInformation("Extracted potential student name: {StudentName} for submission ID: {SubmissionId}", studentName, submissionId);
                             submission.ParsedText = parsedText.Replace(lines[^1], "").Trim(); // Remove the last line containing the student name
 
@@ -177,6 +177,21 @@ namespace SoraEssayJudge.Services
                                 errors.Add($"Student '{studentName}' not found in the database.");
                             }
                         }
+
+                        if((!String.IsNullOrWhiteSpace(studentName)) && lines[0].Contains(studentName))
+                        {
+                            string realTitle = null;
+                            foreach (var x in lines.Skip(1))
+                            {
+                                if (!String.IsNullOrWhiteSpace(x))
+                                {
+                                    realTitle = x;
+                                    break;
+                                }
+                            }
+                            submission.Title = realTitle;
+                        }
+                        
                     }
                     
                     if (submission.StudentId == null)

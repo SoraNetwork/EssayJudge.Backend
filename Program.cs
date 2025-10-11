@@ -65,6 +65,7 @@ try
     builder.Services.AddScoped<IPreProcessImageService, PreProcessImageService>();
     builder.Services.AddScoped<IPreProcessImageServiceV2, PreProcessImageServiceV2>();
     builder.Services.AddScoped<IImageStitchingService, ImageStitchingService>();
+    builder.Services.AddScoped<IExcelExportService, ExcelExportService>();
 
     builder.Services.AddHttpClient<UploadTemporaryImageService>();
 
