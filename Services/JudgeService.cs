@@ -5,9 +5,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Hosting;
+using DocumentFormat.OpenXml.Bibliography;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion.Internal;
+using SoraEssayJudge.Models;
 
 namespace SoraEssayJudge.Services
 {
@@ -99,9 +103,40 @@ namespace SoraEssayJudge.Services
                             await context.SaveChangesAsync();
                             return;
                         }
+                        try
+                        {
+                            var FormatedResult = await processImageService.ProcessImageAsyncV3Formated(imagePath, submission.Id, ocrProcessingModelSetting.AIModel.ModelId);
+                            parsedText = FormatedResult.EssayInfo!.Content;
 
-                        parsedText = await processImageService.ProcessImageAsyncV3(imagePath, submission.Id, ocrProcessingModelSetting.AIModel.ModelId);
-                        submission.ParsedText = parsedText;
+			    StringBuilder sb = new StringBuilder();
+		            sb.AppendLine(FormatedResult.EssayInfo!.Title);
+                            sb.Append(parsedText);
+
+                            submission.ParsedText = sb.ToString();
+                            submission.Title = FormatedResult.EssayInfo!.Title;
+
+                            string? stuName = null;
+                            string? stuId = null;
+                            if (FormatedResult.StudentInfo != null && FormatedResult.StudentInfo!.Name != null)
+                                stuName = FormatedResult.StudentInfo!.Name;
+                            if (FormatedResult.StudentInfo != null && FormatedResult.StudentInfo!.Id != null)
+                                stuId = FormatedResult.StudentInfo!.Id;
+                            if(stuName!=null || stuId != null) { 
+                                Student? student = await context.Students.FirstOrDefaultAsync(s => s.Name == stuName || s.StudentId == stuId);
+                                if (student != null) submission.StudentId = student.Id;
+                                else
+                                {
+                                    _logger.LogWarning("Student with name: {StudentName} not found in the database for submission ID: {SubmissionId}", stuName, submissionId);
+                                    errors.Add($"Student '{stuName}@{stuId}' not found in the database.");
+                                }
+                            }
+                        }
+                        catch {
+                            _logger.LogWarning("Formated  OCRv3 failed for {SubmissionId}. Try to use original V3.",  submissionId);
+                            errors.Add($"Formated  OCRv3 failed for {submissionId}.");
+                            parsedText = await processImageService.ProcessImageAsyncV3(imagePath, submission.Id, ocrProcessingModelSetting.AIModel.ModelId);
+                            submission.ParsedText = parsedText;
+                         }
                     }
                         if (string.IsNullOrEmpty(parsedText))
                     {
@@ -147,7 +182,7 @@ namespace SoraEssayJudge.Services
                     }
                     parsedText = submission.ParsedText;
                     // 自动提取第一行为 Title
-                    if (!string.IsNullOrWhiteSpace(parsedText))
+                    if ((!string.IsNullOrWhiteSpace(parsedText)) && String.IsNullOrEmpty(submission.Title) )
                     {
                         var lines = parsedText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
                         if (lines.Length > 0)
@@ -225,6 +260,7 @@ namespace SoraEssayJudge.Services
                     _logger.LogInformation("Image processed successfully for submission ID: {SubmissionId}. Parsed text length: {ParsedTextLength}", submissionId, parsedText.Length);
 
                     // Save the OCR result to the database immediately so it can be viewed while judging is in progress.
+                    await context.SaveChangesAsync();
 
                     var judgePromptBuilder = new System.Text.StringBuilder();
                     judgePromptBuilder.Append("system:假定你是一个高中语文教师，正在参与高考语文作文的批阅。");
