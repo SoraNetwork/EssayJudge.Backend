@@ -185,7 +185,12 @@ namespace SoraEssayJudge.Services
                 - 将此标识放在作文正文之后
                 - 若未识别到考生姓名，则不输出此部分内容
 
-                > **重要提示**：不得只输出 `$$考生姓名$$` 字样，必须填入实际识别到的考生姓名
+                若OCR结果中识别到考生编号（8位整数）：
+                - 将考生编号以 `$$考生编号$$` 格式单独成段
+                - 将此标识放在作文正文之后
+                - 若未识别到考生编号，则不输出此部分内容
+
+                > **重要提示**：不得只输出 `$$考生编号$$` 字样，必须填入实际识别到的考生编号
 
                 ## 输出示例
 
@@ -197,6 +202,17 @@ namespace SoraEssayJudge.Services
                 正文第二段内容...
 
                 $$张三$$
+                ```
+或
+
+                ```
+                文章标题
+
+                正文第一段内容...
+
+                正文第二段内容...
+
+                $$12345678$$
                 ```
                 ";
             string chatResult = await _openAIService.GetChatCompletionAsync(userPrompt, modelName, imagePath);

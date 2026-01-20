@@ -199,7 +199,7 @@ namespace SoraEssayJudge.Services
                             parsedText = submission.ParsedText; // Update parsedText after removing the last line
 
                             // Attempt to find the student by name
-                            var student = await context.Students.FirstOrDefaultAsync(s => s.Name == studentName);
+                            var student = await context.Students.FirstOrDefaultAsync(s => s.Name == studentName || s.StudentId == studentName);
 
                             if (student != null)
                             {
