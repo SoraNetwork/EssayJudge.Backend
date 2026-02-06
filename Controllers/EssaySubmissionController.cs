@@ -38,36 +38,33 @@ namespace SoraEssayJudge.Controllers
         }
 
         [HttpGet("summary")]
-        public async Task<ActionResult<IEnumerable<EssaySubmissionSummaryDto>>> GetSubmissionsSummary([FromQuery] int top, [FromQuery] Guid? studentId, [FromQuery] string? studentName)
+        public async Task<ActionResult<IEnumerable<EssaySubmissionSummaryDto>>> GetSubmissionsSummary([FromQuery] int top = 0, [FromQuery] Guid? studentId = null)
         {
-            _logger.LogInformation("Getting submission summary with Top: {Top}, StudentId: {StudentId}, StudentName: {StudentName}", top, studentId, studentName);
-            if (!studentId.HasValue && string.IsNullOrEmpty(studentName))
+            _logger.LogInformation("Getting submission summary with Top: {Top}, StudentId: {StudentId}", top, studentId);
+            if (studentId == null)
             {
-                _logger.LogWarning("GetSubmissionsSummary called without studentId or studentName.");
-                return BadRequest("Either studentId or studentName must be provided.");
+                _logger.LogWarning("GetSubmissionsSummary called without studentId.");
+                return BadRequest("StudentId is required.");
             }
 
-            var query = _context.EssaySubmissions.AsQueryable();
+            var query = _context.EssaySubmissions.Where(s => s.StudentId == studentId.Value);
 
-            if (studentId.HasValue)
+            var queryOrdered = query.OrderByDescending(s => s.CreatedAt);
+
+            // 如果 top > 0，则限制返回数量；否则返回全部
+            if (top > 0)
             {
-                query = query.Where(s => s.StudentId == studentId.Value);
-            }
-            else if (!string.IsNullOrEmpty(studentName))
-            {
-                query = query.Where(s => s.Student != null && s.Student.Name.Contains(studentName));
+                queryOrdered = (IOrderedQueryable<EssaySubmission>)queryOrdered.Take(top);
             }
 
-            var summaries = await query.OrderByDescending(s => s.CreatedAt)
-                                       .Take(top)
-                                       .Select(s => new EssaySubmissionSummaryDto
-                                       {
-                                           Id = s.Id,
-                                           TitleContext = s.EssayAssignment != null ? s.EssayAssignment.TitleContext : null,
-                                           FinalScore = s.FinalScore,
-                                           IsError = s.IsError,
-                                           CreatedAt = s.CreatedAt
-                                       }).ToListAsync();
+            var summaries = await queryOrdered.Select(s => new EssaySubmissionSummaryDto
+            {
+                Id = s.Id,
+                TitleContext = s.Title ?? "",
+                FinalScore = s.FinalScore,
+                IsError = s.IsError,
+                CreatedAt = s.CreatedAt
+            }).ToListAsync();
 
             _logger.LogInformation("Found {SummaryCount} submission summaries.", summaries.Count);
             return Ok(summaries);
