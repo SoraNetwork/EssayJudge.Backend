@@ -109,5 +109,25 @@ namespace SoraEssayJudge.Controllers
             _logger.LogInformation("Successfully deleted student with ID: {StudentId}", id);
             return Ok("Student deleted successfully.");
         }
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Put(Guid id, [FromBody] StudentDto studentDto)
+        {
+            _logger.LogInformation("Updating student with ID: {StudentId}", id);
+            var student = await _context.Students.FindAsync(id);
+            if (student == null)
+            {
+                _logger.LogWarning("Student with ID: {StudentId} not found.", id);
+                return NotFound("Student not found.");
+            }
+
+            student.Name = studentDto.Name;
+            student.StudentId = studentDto.StudentId;
+            student.ClassId = studentDto.ClassId;
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Successfully updated student with ID: {StudentId}", id);
+            return Ok(student);
+        }
     }
 }
