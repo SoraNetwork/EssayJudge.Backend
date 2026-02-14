@@ -39,6 +39,29 @@ public class StudentUploadController : ControllerBase
         _uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "essayfiles");
         Directory.CreateDirectory(_uploadPath);
     }
+    [HttpGet("query/essays/{stuId}")]
+    public async Task<ActionResult<List<EssaySubmission>>> GetSubmissionsByStudentId(string stuId)
+    {
+        _logger.LogInformation("Querying for submissions of student ID: {StudentId}", stuId);
+        if (string.IsNullOrEmpty(stuId))
+        {
+            _logger.LogWarning("Invalid studentId provided: {StudentId}. It cannot be null or empty.", stuId);
+            return BadRequest(new { Message = "无效的学生ID。" });
+        }
+        var submissions = await _context.EssaySubmissions
+            .Include(s => s.Student)
+            .Include(s => s.EssayAssignment)
+            .Include(s => s.AIResults)
+            .Where(s => s.Student!=null & s.Student!.StudentId == stuId)
+            .ToListAsync();
+        if (submissions == null || submissions.Count == 0)
+        {
+            _logger.LogWarning("No submissions found for student ID: {StudentId}", stuId);
+            return NotFound(new { Message = "找不到该学生的提交记录。" });
+        }
+        _logger.LogInformation("Found {SubmissionCount} submissions for student ID: {StudentId}", submissions.Count, stuId);
+        return Ok(submissions);
+    }
 
     [HttpGet("query/{shortId}")]
     public async Task<ActionResult<EssaySubmission>> GetSubmissionByShortId(string shortId)

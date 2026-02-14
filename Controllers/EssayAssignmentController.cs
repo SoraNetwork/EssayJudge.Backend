@@ -51,7 +51,7 @@ namespace SoraEssayJudge.Controllers
             _logger.LogInformation("Found assignment with ID: {Id}", id);
             return Ok(assignmentDto);
         }
-        
+
         [HttpGet]
         public async Task<ActionResult<IEnumerable<EssayAssignmentDto>>> GetAssignments([FromQuery] int? top, [FromQuery] Guid? id, [FromQuery] string? title)
         {
@@ -112,7 +112,7 @@ namespace SoraEssayJudge.Controllers
             return Ok(new { assignmentId = assignment.Id });
         }
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteAssignment( Guid id)
+        public async Task<IActionResult> DeleteAssignment(Guid id)
         {
             _logger.LogInformation("Deleting essay assignment with ID: {Id}", id);
             var assignment = await _context.EssayAssignments.FindAsync(id);
@@ -145,11 +145,86 @@ namespace SoraEssayJudge.Controllers
             assignment.Description = updateDto.Description;
             assignment.TitleContext = updateDto.TitleContext;
             assignment.ScoringCriteria = updateDto.ScoringCriteria;
-            assignment.CreatedAt = DateTime.UtcNow; 
+            assignment.CreatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
             _logger.LogInformation("Successfully updated essay assignment with ID: {Id}", updateDto.Id);
             return NoContent();
+        }
+        
+        [HttpGet("{id}/status")]
+        //根据所选的筛选（作文ID\班级（组））返回相应测验的学生完成情况（包含总数完成/以及谁完成、完成详情，没完成的详情）
+        public async Task<ActionResult<EssayAssignmentStatusDto>> GetAssignmentStatus(Guid id, [FromQuery] Guid classId)
+        {
+            _logger.LogInformation("Fetching status for assignment {AssignmentId} in class {ClassId}", id, classId);
+
+            if (await _context.EssayAssignments.FindAsync(id) == null)
+            {
+                _logger.LogWarning("Assignment with ID {Id} not found", id);
+                return NotFound($"Assignment with ID {id} not found.");
+            }
+
+            if (await _context.Classes.FindAsync(classId) == null)
+            {
+                _logger.LogWarning("Class with ID {ClassId} not found", classId);
+                return NotFound($"Class with ID {classId} not found.");
+            }
+
+            var studentsInClass = await _context.Students
+                .Where(s => s.ClassId == classId)
+                .Include(s => s.Class)
+                .ToListAsync();
+
+            var studentIds = studentsInClass.Select(s => s.Id).ToList();
+
+            var submissions = await _context.EssaySubmissions
+                .Where(sub => sub.EssayAssignmentId == id && sub.StudentId.HasValue && studentIds.Contains(sub.StudentId.Value))
+                .ToDictionaryAsync(sub => sub.StudentId.Value);
+
+            var response = new EssayAssignmentStatusDto
+            {
+                TotalStudentCount = studentsInClass.Count
+            };
+
+            foreach (var student in studentsInClass)
+            {
+                var studentDto = new StudentDto
+                {
+                    Id = student.Id,
+                    StudentId = student.StudentId,
+                    Name = student.Name,
+                    ClassId = student.ClassId,
+                    CreatedAt = student.CreatedAt,
+                    Class = student.Class
+                };
+
+                if (submissions.TryGetValue(student.Id, out var submission))
+                {
+                    response.CompletedSubmissions.Add(new CompletedSubmissionDto
+                    {
+                        Student = studentDto,
+                        Submission = new EssaySubmissionSummaryDto
+                        {
+                            Id = submission.Id,
+                            TitleContext = submission.Title,
+                            FinalScore = submission.FinalScore,
+                            IsError = submission.IsError,
+                            CreatedAt = submission.CreatedAt
+                        }
+                    });
+                }
+                else
+                {
+                    response.PendingStudents.Add(studentDto);
+                }
+            }
+
+            response.CompletedCount = response.CompletedSubmissions.Count;
+            response.PendingCount = response.PendingStudents.Count;
+
+            _logger.LogInformation("Successfully fetched status for assignment {AssignmentId}: {CompletedCount} completed, {PendingCount} pending.", id, response.CompletedCount, response.PendingCount);
+
+            return Ok(response);
         }
     }
 }
