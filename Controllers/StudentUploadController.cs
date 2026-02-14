@@ -39,8 +39,38 @@ public class StudentUploadController : ControllerBase
         _uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "essayfiles");
         Directory.CreateDirectory(_uploadPath);
     }
+    /// <summary>
+    /// 查询指定学生的所有作文提交记录
+    /// </summary>
+    /// <param name="stuId">学生学号（8位）</param>
+    /// <returns>包含学生信息和提交记录列表的对象</returns>
+    /// <response code="200">返回学生信息和提交记录</response>
+    /// <response code="400">学生ID无效</response>
+    /// <response code="404">找不到学生或提交记录</response>
+    /// <remarks>
+    /// 返回格式示例：
+    /// 
+    /// {
+    ///   "student": {
+    ///     "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    ///     "name": "张三",
+    ///     "studentId": "20250001"
+    ///   },
+    ///   "submissions": [
+    ///     {
+    ///       "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    ///       "essayAssignmentId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    ///       "title": "论科技与人文",
+    ///       "isError": false,
+    ///       "score": 0,
+    ///       "finalScore": 55,
+    ///       "createdAt": "2023-10-27T10:00:00Z"
+    ///     }
+    ///   ]
+    /// }
+    /// </remarks>
     [HttpGet("query/essays/{stuId}")]
-    public async Task<ActionResult<List<EssaySubmission>>> GetSubmissionsByStudentId(string stuId)
+    public async Task<ActionResult<object>> GetSubmissionsByStudentId(string stuId)
     {
         _logger.LogInformation("Querying for submissions of student ID: {StudentId}", stuId);
         if (string.IsNullOrEmpty(stuId))
@@ -48,19 +78,49 @@ public class StudentUploadController : ControllerBase
             _logger.LogWarning("Invalid studentId provided: {StudentId}. It cannot be null or empty.", stuId);
             return BadRequest(new { Message = "无效的学生ID。" });
         }
+
+        var student = await _context.Students
+            .FirstOrDefaultAsync(s => s.StudentId == stuId);
+
+        if (student == null)
+        {
+            _logger.LogWarning("No student found with student ID: {StudentId}", stuId);
+            return NotFound(new { Message = "找不到该学生。" });
+        }
+
         var submissions = await _context.EssaySubmissions
-            .Include(s => s.Student)
-            .Include(s => s.EssayAssignment)
-            .Include(s => s.AIResults)
-            .Where(s => s.Student!=null & s.Student!.StudentId == stuId)
+            .Where(s => s.StudentId == student.Id)
+            .Select(s => new
+            {
+                s.Id,
+                s.EssayAssignmentId,
+                s.Title,
+                s.IsError,
+                s.Score,
+                s.FinalScore,
+                s.CreatedAt
+            })
             .ToListAsync();
+
         if (submissions == null || submissions.Count == 0)
         {
             _logger.LogWarning("No submissions found for student ID: {StudentId}", stuId);
             return NotFound(new { Message = "找不到该学生的提交记录。" });
         }
+
+        var result = new
+        {
+            Student = new
+            {
+                student.Id,
+                student.Name,
+                student.StudentId
+            },
+            Submissions = submissions
+        };
+
         _logger.LogInformation("Found {SubmissionCount} submissions for student ID: {StudentId}", submissions.Count, stuId);
-        return Ok(submissions);
+        return Ok(result);
     }
 
     [HttpGet("query/{shortId}")]
