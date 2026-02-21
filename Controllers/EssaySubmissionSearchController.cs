@@ -15,6 +15,7 @@ namespace SoraEssayJudge.Controllers
     public class EssaySubmissionSearchController : ControllerBase
     {
         private readonly EssayContext _context;
+
         public EssaySubmissionSearchController(EssayContext context)
         {
             _context = context;
@@ -43,7 +44,7 @@ namespace SoraEssayJudge.Controllers
             {
                 query = query.Where(e => e.IsError == isError.Value);
             }
-            
+
             if (!string.IsNullOrWhiteSpace(assignmentId))
             {
                 query = query.Where(e => e.EssayAssignmentId == new Guid(assignmentId));

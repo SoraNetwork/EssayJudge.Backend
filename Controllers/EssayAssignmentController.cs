@@ -9,6 +9,7 @@ using System.Linq;
 using SoraEssayJudge.Dtos;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
+using Microsoft.Extensions.Configuration;
 
 namespace SoraEssayJudge.Controllers
 {
@@ -19,11 +20,25 @@ namespace SoraEssayJudge.Controllers
     {
         private readonly EssayContext _context;
         private readonly ILogger<EssayAssignmentController> _logger;
+        private readonly IConfiguration _config;
 
-        public EssayAssignmentController(EssayContext context, ILogger<EssayAssignmentController> logger)
+        public EssayAssignmentController(EssayContext context, ILogger<EssayAssignmentController> logger, IConfiguration config)
         {
             _context = context;
             _logger = logger;
+            _config = config;
+        }
+
+        private bool CheckPermission()
+        {
+            var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+            if (authHeader == null || !authHeader.StartsWith("Bearer "))
+            {
+                return false;
+            }
+
+            var token = authHeader.Substring("Bearer ".Length).Trim();
+            return UserAccessController.CheckAccess(token, 2, _context, _config);
         }
         [HttpGet("{id}")]
         public async Task<ActionResult<EssayAssignmentDto>> GetAssignmentById(Guid id)
@@ -92,6 +107,11 @@ namespace SoraEssayJudge.Controllers
         [HttpPost]
         public async Task<IActionResult> Post([FromForm] string grade, [FromForm] int totalScore, [FromForm] int baseScore, [FromForm] string? Description, [FromForm] string? titleContext, [FromForm] string? scoringCriteria)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             _logger.LogInformation("Creating a new essay assignment with Grade: {Grade}, TotalScore: {TotalScore}", grade, totalScore);
             var assignment = new EssayAssignment
             {
@@ -114,6 +134,11 @@ namespace SoraEssayJudge.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteAssignment(Guid id)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             _logger.LogInformation("Deleting essay assignment with ID: {Id}", id);
             var assignment = await _context.EssayAssignments.FindAsync(id);
             if (assignment == null)
@@ -131,6 +156,11 @@ namespace SoraEssayJudge.Controllers
         [HttpPut]
         public async Task<IActionResult> UpdateAssignment([FromBody] EssayAssignmentDto updateDto)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             _logger.LogInformation("Updating essay assignment with ID: {Id}", updateDto.Id);
             var assignment = await _context.EssayAssignments.FindAsync(updateDto.Id);
             if (assignment == null)

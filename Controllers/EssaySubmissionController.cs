@@ -12,6 +12,7 @@ using SoraEssayJudge.Services;
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 
 namespace SoraEssayJudge.Controllers
 {
@@ -25,9 +26,10 @@ namespace SoraEssayJudge.Controllers
         private readonly EssayContext _context;
         private readonly IWebHostEnvironment _env;
         private readonly ILogger<EssaySubmissionController> _logger;
-        private readonly IServiceScopeFactory _serviceScopeFactory; // Add IServiceProvider to inject
+        private readonly IServiceScopeFactory _serviceScopeFactory;
+        private readonly IConfiguration _config;
 
-        public EssaySubmissionController(JudgeService judgeService, IPreProcessImageServiceV2 preProcessImageServiceV2, EssayContext context, IWebHostEnvironment env, ILogger<EssaySubmissionController> logger,IServiceScopeFactory serviceScopeFactory)
+        public EssaySubmissionController(JudgeService judgeService, IPreProcessImageServiceV2 preProcessImageServiceV2, EssayContext context, IWebHostEnvironment env, ILogger<EssaySubmissionController> logger, IServiceScopeFactory serviceScopeFactory, IConfiguration config)
         {
             _judgeService = judgeService;
             _preProcessImageServiceV2 = preProcessImageServiceV2;
@@ -35,6 +37,19 @@ namespace SoraEssayJudge.Controllers
             _env = env;
             _logger = logger;
             _serviceScopeFactory = serviceScopeFactory;
+            _config = config;
+        }
+
+        private bool CheckPermission()
+        {
+            var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+            if (authHeader == null || !authHeader.StartsWith("Bearer "))
+            {
+                return false;
+            }
+
+            var token = authHeader.Substring("Bearer ".Length).Trim();
+            return UserAccessController.CheckAccess(token, 2, _context, _config);
         }
 
         [HttpGet("summary")]
@@ -73,6 +88,11 @@ namespace SoraEssayJudge.Controllers
         [HttpPost]
         public async Task<IActionResult> Post([FromForm] Guid essayAssignmentId, IFormFile imageFile, [FromForm] int columnCount, [FromForm] bool enableV3 = false)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             _logger.LogInformation("Received new essay submission for assignment ID: {EssayAssignmentId}", essayAssignmentId);
             if (imageFile == null || imageFile.Length == 0)
             {
@@ -127,6 +147,11 @@ namespace SoraEssayJudge.Controllers
         [HttpPost("batch")]
         public async Task<IActionResult> PostBatch([FromForm] Guid essayAssignmentId, List<IFormFile> imageFiles, [FromForm] int columnCount, [FromForm] bool enableV3 = false)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             _logger.LogInformation("Received batch essay submission for assignment ID: {EssayAssignmentId} with {FileCount} files", essayAssignmentId, imageFiles?.Count ?? 0);
 
             if (imageFiles == null || imageFiles.Count == 0)
@@ -249,6 +274,11 @@ namespace SoraEssayJudge.Controllers
         [HttpPost("V2")]
         public async Task<IActionResult> PostV2([FromForm] Guid essayAssignmentId, IFormFile imageFile)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             _logger.LogInformation("Received new essay submission for assignment ID: {EssayAssignmentId}", essayAssignmentId);
             if (imageFile == null || imageFile.Length == 0)
             {
@@ -343,6 +373,11 @@ namespace SoraEssayJudge.Controllers
         [HttpPatch("{id}/rejudge")]
         public async Task<IActionResult> Rejudge(Guid id)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             _logger.LogInformation("Received request to re-judge submission ID: {SubmissionId}", id);
             var submission = await _context.EssaySubmissions
                                            .Include(s => s.AIResults)
@@ -383,6 +418,11 @@ namespace SoraEssayJudge.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateSubmission(Guid id, [FromForm] UpdateEssaySubmissionDto updateDto)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             _logger.LogInformation("Updating submission {SubmissionId}", id);
             var submission = await _context.EssaySubmissions.FindAsync(id);
             if (submission == null)
@@ -429,6 +469,11 @@ namespace SoraEssayJudge.Controllers
         [HttpDelete]
         public async Task<IActionResult> DeleteSubmission([FromQuery] Guid id)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             _logger.LogInformation("Deleting submission with ID: {SubmissionId}", id);
             var submission = await _context.EssaySubmissions.FindAsync(id);
             if (submission == null)

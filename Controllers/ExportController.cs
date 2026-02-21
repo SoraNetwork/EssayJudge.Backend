@@ -2,6 +2,8 @@
 using Microsoft.AspNetCore.Mvc;
 using SoraEssayJudge.Models.DTOs;
 using SoraEssayJudge.Services;
+using Microsoft.Extensions.Configuration;
+using SoraEssayJudge.Data;
 
 namespace SoraEssayJudge.Controllers
 {
@@ -11,15 +13,36 @@ namespace SoraEssayJudge.Controllers
     public class ExportController : ControllerBase
     {
         private readonly IExcelExportService _excelExportService;
+        private readonly IConfiguration _config;
+        private readonly EssayContext _context;
 
-        public ExportController(IExcelExportService excelExportService)
+        public ExportController(IExcelExportService excelExportService, IConfiguration config, EssayContext context)
         {
             _excelExportService = excelExportService;
+            _config = config;
+            _context = context;
+        }
+
+        private bool CheckPermission()
+        {
+            var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+            if (authHeader == null || !authHeader.StartsWith("Bearer "))
+            {
+                return false;
+            }
+
+            var token = authHeader.Substring("Bearer ".Length).Trim();
+            return UserAccessController.CheckAccess(token, 2, _context, _config);
         }
 
         [HttpPost("essays")]
         public async Task<IActionResult> ExportEssaySubmissions([FromBody] ExportFilterDto? filter = null)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             try
             {
                 var fileBytes = await _excelExportService.ExportEssaySubmissionsAsync(filter);
@@ -38,11 +61,16 @@ namespace SoraEssayJudge.Controllers
         [HttpGet("essays")]
         public async Task<IActionResult> ExportEssaySubmissionsGet(
             [FromQuery] Guid? essayAssignmentId = null,
-            [FromQuery] string? essayAssignmentIds = null, // 逗号分隔的多个ID
+            [FromQuery] string? essayAssignmentIds = null,
             [FromQuery] Guid? classId = null,
             [FromQuery] DateTime? startDate = null,
             [FromQuery] DateTime? endDate = null)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             var filter = new ExportFilterDto
             {
                 EssayAssignmentId = essayAssignmentId,
@@ -51,7 +79,6 @@ namespace SoraEssayJudge.Controllers
                 EndDate = endDate
             };
 
-            // 解析多个测验ID
             if (!string.IsNullOrEmpty(essayAssignmentIds))
             {
                 var idStrings = essayAssignmentIds.Split(',');

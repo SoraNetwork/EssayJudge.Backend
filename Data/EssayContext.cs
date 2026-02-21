@@ -18,5 +18,6 @@ namespace SoraEssayJudge.Data
         public DbSet<ApiKey> ApiKeys { get; set; }
         public DbSet<AIModel> AIModels { get; set; }
         public DbSet<AIModelUsageSetting> AIModelUsageSettings { get; set; }
+        public DbSet<Role> Roles { get; set; }
     }
 }

@@ -12,15 +12,36 @@ namespace SoraEssayJudge.Controllers
     public class ApiKeyController : ControllerBase
     {
         private readonly EssayContext _context;
+        private readonly IConfiguration _config;
 
-        public ApiKeyController(EssayContext context)
+        public ApiKeyController(EssayContext context, IConfiguration config)
         {
             _context = context;
+            _config = config;
+        }
+
+        private int Level = 0;
+
+        private bool CheckPermission()
+        {
+            var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+            if (authHeader == null || !authHeader.StartsWith("Bearer "))
+            {
+                return false;
+            }
+
+            var token = authHeader.Substring("Bearer ".Length).Trim();
+            return UserAccessController.CheckAccess(token, Level, _context, _config);
         }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ApiKey>>> GetApiKeys()
         {
+            if (!UserAccessController.CheckAccess(Request.Headers["Authorization"].FirstOrDefault().Substring("Bearer ".Length).Trim(), Level, _context, _config))
+            {
+                return StatusCode(403);
+            }
+
             return await _context.ApiKeys
                 .Include(k => k.AIModels)
                 .ToListAsync();
@@ -29,6 +50,11 @@ namespace SoraEssayJudge.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<ApiKey>> GetApiKey(Guid id)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             var apiKey = await _context.ApiKeys
                 .Include(k => k.AIModels)
                 .FirstOrDefaultAsync(k => k.Id == id);
@@ -44,6 +70,11 @@ namespace SoraEssayJudge.Controllers
         [HttpPost]
         public async Task<ActionResult<ApiKey>> PostApiKey([FromForm] string serviceType, [FromForm] string key, [FromForm] string? secret, [FromForm] string? endpoint, [FromForm] string? description, [FromForm] List<string>? modelIds)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             var apiKey = new ApiKey
             {
                 ServiceType = serviceType,
@@ -82,6 +113,11 @@ namespace SoraEssayJudge.Controllers
             [FromForm] string? description,
             [FromForm] List<string>? modelIds)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             var apiKeyToUpdate = await _context.ApiKeys
                 .FirstOrDefaultAsync(k => k.Id == id);
 
@@ -169,6 +205,11 @@ namespace SoraEssayJudge.Controllers
         [HttpPatch("{id}/toggle")]
         public async Task<IActionResult> ToggleApiKey(Guid id)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             var apiKey = await _context.ApiKeys.FindAsync(id);
             if (apiKey == null)
             {
@@ -185,6 +226,11 @@ namespace SoraEssayJudge.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteApiKey(Guid id)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             var apiKey = await _context.ApiKeys
                 .Include(k => k.AIModels)
                 .ThenInclude(m => m.UsageSettings)
@@ -221,6 +267,11 @@ namespace SoraEssayJudge.Controllers
         [HttpGet("model-usage-settings")]
         public async Task<ActionResult<IEnumerable<AIModelUsageSetting>>> GetModelUsageSettings()
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             return await _context.AIModelUsageSettings
                 .Include(s => s.AIModel)
                 .OrderBy(s => s.UsageType)
@@ -231,6 +282,11 @@ namespace SoraEssayJudge.Controllers
         [HttpPost("model-usage-settings")]
         public async Task<ActionResult<AIModelUsageSetting>> CreateModelUsageSetting([FromForm] AIModelUsageSetting setting)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
@@ -257,6 +313,11 @@ namespace SoraEssayJudge.Controllers
         [HttpPut("model-usage-settings/{id}")]
         public async Task<IActionResult> UpdateModelUsageSetting(Guid id, [FromForm] string? usageType, [FromForm] bool? isEnabled, [FromForm] Guid? aiModelId)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             var existingSetting = await _context.AIModelUsageSettings.FirstOrDefaultAsync(s => s.Id == id);
 
             if (existingSetting == null)
@@ -310,6 +371,11 @@ namespace SoraEssayJudge.Controllers
         [HttpDelete("model-usage-settings/{id}")]
         public async Task<IActionResult> DeleteModelUsageSetting(Guid id)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             var setting = await _context.AIModelUsageSettings.FindAsync(id);
             if (setting == null)
             {
@@ -325,6 +391,11 @@ namespace SoraEssayJudge.Controllers
         [HttpGet("all-models")]
         public async Task<ActionResult<IEnumerable<AIModel>>> GetAllAIModels()
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             // Endpoint to get all available AI models
             return await _context.AIModels.ToListAsync();
         }

@@ -23,7 +23,7 @@ public class StudentUploadController : ControllerBase
 
     public StudentUploadController(
         JudgeService judge,
-        EssayContext context, 
+        EssayContext context,
         ILogger<StudentUploadController> logger,
         IPreProcessImageService preProcessImageService,
         IPreProcessImageServiceV2 preProcessImageServiceV2,
@@ -38,8 +38,7 @@ public class StudentUploadController : ControllerBase
         _imageStitchingService = imageStitchingService;
         _uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "essayfiles");
         Directory.CreateDirectory(_uploadPath);
-    }
-    /// <summary>
+    }    /// <summary>
     /// 查询指定学生的所有作文提交记录
     /// </summary>
     /// <param name="stuId">学生学号（8位）</param>
@@ -204,14 +203,12 @@ public class StudentUploadController : ControllerBase
         return Ok(assignments);
     }
     [HttpPost("checkimg/V2")]
-    public async Task<ActionResult<CheckImageResponseDto>> CheckImageV2(IFormFile file)
-    {
-        if (file == null || file.Length == 0)
-        {
-            return BadRequest(new { Message = "没有上传文件" });
-        }
-
-        if (!file.ContentType.StartsWith("image/"))
+            public async Task<ActionResult<CheckImageResponseDto>> CheckImageV2(IFormFile file)
+            {
+                if (file == null || file.Length == 0)
+                {
+                    return BadRequest(new { Message = "没有上传文件" });
+                }        if (!file.ContentType.StartsWith("image/"))
         {
             return BadRequest(new { Message = "只接受图片文件" });
         }
@@ -250,14 +247,12 @@ public class StudentUploadController : ControllerBase
     }
 
     [HttpPost("checkimg")]
-    public async Task<ActionResult<CheckImageResponseDto>> CheckImage(IFormFile file)
-    {
-        if (file == null || file.Length == 0)
-        {
-            return BadRequest(new { Message = "没有上传文件" });
-        }
-
-        if (!file.ContentType.StartsWith("image/"))
+            public async Task<ActionResult<CheckImageResponseDto>> CheckImage(IFormFile file)
+            {
+                if (file == null || file.Length == 0)
+                {
+                    return BadRequest(new { Message = "没有上传文件" });
+                }        if (!file.ContentType.StartsWith("image/"))
         {
             return BadRequest(new { Message = "只接受图片文件" });
         }
@@ -295,14 +290,12 @@ public class StudentUploadController : ControllerBase
         }
     }
     [HttpPost("submit/hasprased")]
-    public async Task<ActionResult<EssaySubmissionDto>> SubmitEssayWithProcessedImage([FromForm] CreateEssaySubmissionPrasedDto dto)
-    {
-        if (string.IsNullOrEmpty(dto.StudentId) || string.IsNullOrEmpty(dto.PrasedText))
-        {
-            return BadRequest(new { Message = "提交信息不完整" });
-        }
-
-        var student = await _context.Students
+            public async Task<ActionResult<EssaySubmissionDto>> SubmitEssayWithProcessedImage([FromForm] CreateEssaySubmissionPrasedDto dto)
+            {
+                if (string.IsNullOrEmpty(dto.StudentId) || string.IsNullOrEmpty(dto.PrasedText))
+                {
+                    return BadRequest(new { Message = "提交信息不完整" });
+                }        var student = await _context.Students
             .FirstOrDefaultAsync(s => s.StudentId == dto.StudentId);
 
         if (student == null)
@@ -344,14 +337,12 @@ public class StudentUploadController : ControllerBase
 
 
     [HttpPost("submit")]
-    public async Task<ActionResult<EssaySubmissionDto>> SubmitEssay([FromForm] CreateEssaySubmissionDto dto)
-    {
-        if (string.IsNullOrEmpty(dto.StudentId) || string.IsNullOrEmpty(dto.ProcessedImageUrl))
-        {
-            return BadRequest(new { Message = "提交信息不完整" });
-        }
-
-        var student = await _context.Students
+            public async Task<ActionResult<EssaySubmissionDto>> SubmitEssay([FromForm] CreateEssaySubmissionDto dto)
+            {
+                if (string.IsNullOrEmpty(dto.StudentId) || string.IsNullOrEmpty(dto.ProcessedImageUrl))
+                {
+                    return BadRequest(new { Message = "提交信息不完整" });
+                }        var student = await _context.Students
             .FirstOrDefaultAsync(s => s.StudentId == dto.StudentId);
 
         if (student == null)
@@ -393,17 +384,15 @@ public class StudentUploadController : ControllerBase
     }
 
     [HttpPost("checkimg/columns")]
-    public async Task<ActionResult<CheckImageResponseDto>> CheckImageColumns(IFormFileCollection files)
-    {
-        _logger.LogInformation("Received request for CheckImageColumns with {FileCount} files.", files.Count);
-
-        if (files == null || files.Count == 0)
-        {
-            _logger.LogWarning("No files uploaded, returning 400 Bad Request.");
-            return BadRequest(new { Message = "没有上传文件" });
-        }
-
-        foreach (var file in files)
+            public async Task<ActionResult<CheckImageResponseDto>> CheckImageColumns(IFormFileCollection files)
+            {
+                _logger.LogInformation("Received request for CheckImageColumns with {FileCount} files.", files.Count);
+    
+                if (files == null || files.Count == 0)
+                {
+                    _logger.LogWarning("No files uploaded, returning 400 Bad Request.");
+                    return BadRequest(new { Message = "没有上传文件" });
+                }        foreach (var file in files)
         {
             if (!file.ContentType.StartsWith("image/"))
             {

@@ -9,6 +9,7 @@ using System.Linq;
 using SoraEssayJudge.Dtos;
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
+using Microsoft.Extensions.Configuration;
 
 namespace SoraEssayJudge.Controllers
 {
@@ -19,11 +20,25 @@ namespace SoraEssayJudge.Controllers
     {
         private readonly EssayContext _context;
         private readonly ILogger<StudentController> _logger;
+        private readonly IConfiguration _config;
 
-        public StudentController(EssayContext context, ILogger<StudentController> logger)
+        public StudentController(EssayContext context, ILogger<StudentController> logger, IConfiguration config)
         {
             _context = context;
             _logger = logger;
+            _config = config;
+        }
+
+        private bool CheckPermission()
+        {
+            var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+            if (authHeader == null || !authHeader.StartsWith("Bearer "))
+            {
+                return false;
+            }
+
+            var token = authHeader.Substring("Bearer ".Length).Trim();
+            return UserAccessController.CheckAccess(token, 1, _context, _config);
         }
 
         [HttpGet]
@@ -66,9 +81,14 @@ namespace SoraEssayJudge.Controllers
         [HttpPost]
         public async Task<IActionResult> Post([FromForm] string name, [FromForm] string studentId, [FromForm] Guid classId)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             _logger.LogInformation("Creating a new student with name: {StudentName}, studentId: {StudentId}, classId: {ClassId}", name, studentId, classId);
 
-            var existingStudent = await _context.Students.FirstOrDefaultAsync(s => s.StudentId == studentId 
+            var existingStudent = await _context.Students.FirstOrDefaultAsync(s => s.StudentId == studentId
                                                                                   || s.Name == name);
 
             if (existingStudent != null)
@@ -76,7 +96,7 @@ namespace SoraEssayJudge.Controllers
                 _logger.LogWarning("Student with name: {StudentName} or studentId: {StudentId} already exists.", name, studentId);
                 return BadRequest("A student with the same name or student ID already exists.");
             }
-            
+
             var student = new Student
             {
                 Id = Guid.NewGuid(),
@@ -92,9 +112,14 @@ namespace SoraEssayJudge.Controllers
             _logger.LogInformation("Successfully created student with ID: {StudentId}", student.Id);
             return Ok(new { studentId = student.Id });
         }
-        [HttpDelete("{id}")] 
+        [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             _logger.LogInformation("Deleting student with ID: {StudentId}", id);
             var student = await _context.Students.FindAsync(id);
             if (student == null)
@@ -112,6 +137,11 @@ namespace SoraEssayJudge.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Put(Guid id, [FromBody] StudentDto studentDto)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             _logger.LogInformation("Updating student with ID: {StudentId}", id);
             var student = await _context.Students.FindAsync(id);
             if (student == null)

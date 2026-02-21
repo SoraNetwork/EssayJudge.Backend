@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using System.Collections.Generic;
 using SoraEssayJudge.Dtos;
+using Microsoft.Extensions.Configuration;
 
 namespace SoraEssayJudge.Controllers
 {
@@ -17,10 +18,24 @@ namespace SoraEssayJudge.Controllers
     public class ClassController : ControllerBase
     {
         private readonly EssayContext _context;
+        private readonly IConfiguration _config;
 
-        public ClassController(EssayContext context)
+        public ClassController(EssayContext context, IConfiguration config)
         {
             _context = context;
+            _config = config;
+        }
+
+        private bool CheckPermission()
+        {
+            var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+            if (authHeader == null || !authHeader.StartsWith("Bearer "))
+            {
+                return false;
+            }
+
+            var token = authHeader.Substring("Bearer ".Length).Trim();
+            return UserAccessController.CheckAccess(token, 1, _context, _config);
         }
 
         [HttpGet]
@@ -67,6 +82,11 @@ namespace SoraEssayJudge.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateClass([FromForm] string name)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             var newClass = new Class
             {
                 Id = Guid.NewGuid(),
@@ -81,6 +101,11 @@ namespace SoraEssayJudge.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteClass(Guid id)
         {
+            if (!CheckPermission())
+            {
+                return StatusCode(403);
+            }
+
             var classToDelete = await _context.Classes.FindAsync(id);
             if (classToDelete == null)
             {
