@@ -190,12 +190,9 @@ namespace SoraEssayJudge.Controllers
             {
                 var studentDto = new StudentDto
                 {
-                    Id = student.Id,
                     StudentId = student.StudentId,
                     Name = student.Name,
-                    ClassId = student.ClassId,
-                    CreatedAt = student.CreatedAt,
-                    Class = student.Class
+                    ClassId = student.ClassId
                 };
 
                 if (submissions.TryGetValue(student.Id, out var submission))
