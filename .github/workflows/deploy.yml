@@ -42,7 +42,7 @@ jobs:
     needs: publish
     strategy:
       matrix:
-        environment: [hangzhou, ningbo]
+        environment: [ningbo]
     
     name: Deploy to ${{ matrix.environment }}
     environment: ${{ matrix.environment }}
